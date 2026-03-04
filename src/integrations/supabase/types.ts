@@ -75,6 +75,33 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          id: string
+          level: number | null
+          streak: number | null
+          total_xp: number | null
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          id: string
+          level?: number | null
+          streak?: number | null
+          total_xp?: number | null
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          id?: string
+          level?: number | null
+          streak?: number | null
+          total_xp?: number | null
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       rep_logs: {
         Row: {
           posture_label: string
@@ -142,6 +169,50 @@ export type Database = {
           username?: string
         }
         Relationships: []
+      }
+      workout_logs: {
+        Row: {
+          correct_reps: number | null
+          created_at: string | null
+          duration_seconds: number | null
+          exercise: string
+          fatigue_score: number | null
+          id: string
+          total_reps: number | null
+          user_id: string
+          xp_earned: number | null
+        }
+        Insert: {
+          correct_reps?: number | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          exercise: string
+          fatigue_score?: number | null
+          id?: string
+          total_reps?: number | null
+          user_id: string
+          xp_earned?: number | null
+        }
+        Update: {
+          correct_reps?: number | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          exercise?: string
+          fatigue_score?: number | null
+          id?: string
+          total_reps?: number | null
+          user_id?: string
+          xp_earned?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workouts: {
         Row: {
