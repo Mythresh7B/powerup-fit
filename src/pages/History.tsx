@@ -26,13 +26,14 @@ const History = () => {
     if (user.isGuest) { setLoading(false); return; }
 
     const fetchWorkouts = async () => {
-      const { data } = await supabase
-        .from('workouts' as any)
+      const { data, error } = await supabase
+        .from('workout_logs')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(20);
-      setWorkouts((data as any as WorkoutRecord[]) || []);
+      if (error) console.error('Fetch workouts error:', error);
+      setWorkouts((data as WorkoutRecord[]) || []);
       setLoading(false);
     };
     fetchWorkouts();
