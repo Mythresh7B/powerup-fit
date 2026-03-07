@@ -3,6 +3,19 @@ import { extractAngles, RepCounter, FatigueTracker, checkPosture, POSE_CONNECTIO
 import type { Exercise, Landmark } from '@/lib/pose';
 import { useSessionStore } from '@/lib/store';
 
+// Load MediaPipe Pose from CDN (npm package doesn't work with Vite bundler)
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.crossOrigin = 'anonymous';
+    s.onload = () => resolve();
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
 const PoseCamera = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -16,6 +29,7 @@ const PoseCamera = () => {
   const [fps, setFps] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const fpsCountRef = useRef(0);
   const fpsTimeRef = useRef(Date.now());
 
@@ -126,13 +140,18 @@ const PoseCamera = () => {
           canvas.height = video.videoHeight || 480;
         }
 
-        // Load MediaPipe Pose via CDN
-        const { Pose } = await import('@mediapipe/pose');
+        // Load MediaPipe Pose via CDN script tag
+        await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js');
         if (cancelled) return;
 
-        const pose = new Pose({
+        const mp = (window as any);
+        if (!mp.Pose) {
+          throw new Error('MediaPipe Pose not loaded');
+        }
+
+        const pose = new mp.Pose({
           locateFile: (file: string) =>
-            `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+            `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`,
         });
 
         pose.setOptions({
@@ -158,8 +177,9 @@ const PoseCamera = () => {
           }
         }, 42);
 
-      } catch (err) {
+      } catch (err: any) {
         console.error('Camera/Pose init error:', err);
+        setError(err?.message || 'Failed to initialize camera');
         setLoading(false);
       }
     };
@@ -207,6 +227,15 @@ const PoseCamera = () => {
             <span className="text-sm text-muted-foreground">
               {!cameraReady ? 'Requesting camera...' : 'Loading pose model...'}
             </span>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur">
+          <div className="text-center p-4">
+            <p className="text-sm text-destructive mb-2">⚠️ {error}</p>
+            <p className="text-xs text-muted-foreground">Please allow camera access and reload.</p>
           </div>
         </div>
       )}

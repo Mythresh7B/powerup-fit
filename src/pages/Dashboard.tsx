@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, useSessionStore } from '@/lib/store';
 import { supabase } from '@/integrations/supabase/client';
-import { calculateXP } from '@/lib/xp';
+import { calculateXP, getLevel } from '@/lib/xp';
 import type { Exercise } from '@/lib/pose';
 import Navbar from '@/components/Navbar';
 import PoseCamera from '@/components/PoseCamera';
@@ -25,6 +25,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
   const session = useSessionStore();
+  const sessionStartRef = useRef<number>(0);
 
   useEffect(() => {
     if (!user) navigate('/');
@@ -34,6 +35,7 @@ const Dashboard = () => {
 
   const handleStartSession = () => {
     session.startSession();
+    sessionStartRef.current = Date.now();
     toast.info('Session started! Get into position.');
   };
 
@@ -41,30 +43,38 @@ const Dashboard = () => {
     session.endSession();
     const accuracy = session.repCount > 0 ? session.correctReps / session.repCount : 0;
     const xpEarned = calculateXP(session.correctReps, accuracy, session.fatigueIndex, user.streak);
+    const durationSeconds = Math.round((Date.now() - sessionStartRef.current) / 1000);
 
     if (!user.isGuest) {
       try {
-        await supabase.from('workouts' as any).insert({
+        // Insert workout log
+        await supabase.from('workout_logs').insert({
           user_id: user.id,
           exercise: session.exercise,
-          duration_seconds: 0,
+          duration_seconds: durationSeconds,
           total_reps: session.repCount,
           correct_reps: session.correctReps,
           xp_earned: xpEarned,
           fatigue_score: session.fatigueIndex,
         });
 
-        const newTotalXp = user.total_xp + xpEarned;
-        await supabase.from('profiles' as any).update({
+        // Update profile XP and level
+        const newTotalXp = (user.total_xp || 0) + xpEarned;
+        const newLevel = getLevel(newTotalXp);
+
+        await supabase.from('profiles').update({
           total_xp: newTotalXp,
+          level: newLevel,
+          updated_at: new Date().toISOString(),
         }).eq('id', user.id);
 
-        setUser({ ...user, total_xp: newTotalXp });
+        setUser({ ...user, total_xp: newTotalXp, level: newLevel });
       } catch (err) {
         console.error('Save error:', err);
       }
     } else {
-      setUser({ ...user, total_xp: user.total_xp + xpEarned });
+      const newTotalXp = (user.total_xp || 0) + xpEarned;
+      setUser({ ...user, total_xp: newTotalXp, level: getLevel(newTotalXp) });
     }
 
     toast.success(`Session complete! +${xpEarned} XP earned 🎉`);
@@ -129,6 +139,13 @@ const Dashboard = () => {
           {/* XP Ring */}
           <div className="glass-card p-4 flex justify-center">
             <XPRing totalXp={user.total_xp} sessionXp={session.xp} />
+          </div>
+
+          {/* Level display */}
+          <div className="glass-card p-3 text-center">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">Level</span>
+            <p className="text-2xl font-bold text-primary">{user.level}</p>
+            <p className="text-xs text-muted-foreground">{user.total_xp} XP total</p>
           </div>
 
           {/* Start/End button */}
