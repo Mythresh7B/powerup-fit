@@ -41,43 +41,40 @@ const Dashboard = () => {
 
   const handleEndSession = async () => {
     session.endSession();
-    const accuracy = session.repCount > 0 ? session.correctReps / session.repCount : 0;
-    const xpEarned = calculateXP(session.correctReps, accuracy, session.fatigueIndex, user.streak);
     const durationSeconds = Math.round((Date.now() - sessionStartRef.current) / 1000);
 
     if (!user.isGuest) {
       try {
-        // Insert workout log
-        await supabase.from('workout_logs').insert({
-          user_id: user.id,
-          exercise: session.exercise,
-          duration_seconds: durationSeconds,
-          total_reps: session.repCount,
-          correct_reps: session.correctReps,
-          xp_earned: xpEarned,
-          fatigue_score: session.fatigueIndex,
+        // Call server-side edge function — XP is calculated server-side
+        const { data, error } = await supabase.functions.invoke('complete-workout', {
+          body: {
+            exercise: session.exercise,
+            total_reps: session.repCount,
+            correct_reps: session.correctReps,
+            fatigue_score: session.fatigueIndex,
+            duration_seconds: durationSeconds,
+          },
         });
 
-        // Update profile XP and level
-        const newTotalXp = (user.total_xp || 0) + xpEarned;
-        const newLevel = getLevel(newTotalXp);
-
-        await supabase.from('profiles').update({
-          total_xp: newTotalXp,
-          level: newLevel,
-          updated_at: new Date().toISOString(),
-        }).eq('id', user.id);
-
-        setUser({ ...user, total_xp: newTotalXp, level: newLevel });
+        if (error) {
+          console.error('Complete workout error:', error);
+          toast.error('Failed to save workout');
+        } else {
+          setUser({ ...user, total_xp: data.total_xp, level: data.level });
+          toast.success(`Session complete! +${data.xp_earned} XP earned 🎉`);
+        }
       } catch (err) {
         console.error('Save error:', err);
+        toast.error('Failed to save workout');
       }
     } else {
+      const accuracy = session.repCount > 0 ? session.correctReps / session.repCount : 0;
+      const xpEarned = calculateXP(session.correctReps, accuracy, session.fatigueIndex, user.streak);
       const newTotalXp = (user.total_xp || 0) + xpEarned;
       setUser({ ...user, total_xp: newTotalXp, level: getLevel(newTotalXp) });
+      toast.success(`Session complete! +${xpEarned} XP earned 🎉`);
     }
 
-    toast.success(`Session complete! +${xpEarned} XP earned 🎉`);
     session.resetSession();
   };
 
