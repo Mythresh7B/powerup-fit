@@ -8,7 +8,7 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) navigate('/dashboard');
+    if (user) navigate('/menu');
   }, [user, navigate]);
 
   return (

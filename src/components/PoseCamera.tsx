@@ -47,6 +47,7 @@ const PoseCamera = () => {
   setPostureRef.current = setPosture;
 
   const drawSkeleton = useCallback((ctx: CanvasRenderingContext2D, landmarks: Landmark[], w: number, h: number) => {
+    // Mirror x coordinates to match the flipped video
     ctx.strokeStyle = '#10b981';
     ctx.lineWidth = 3;
 
@@ -55,8 +56,8 @@ const PoseCamera = () => {
       const b = landmarks[j];
       if ((a.visibility ?? 0) > 0.5 && (b.visibility ?? 0) > 0.5) {
         ctx.beginPath();
-        ctx.moveTo(a.x * w, a.y * h);
-        ctx.lineTo(b.x * w, b.y * h);
+        ctx.moveTo((1 - a.x) * w, a.y * h);
+        ctx.lineTo((1 - b.x) * w, b.y * h);
         ctx.stroke();
       }
     }
@@ -65,7 +66,7 @@ const PoseCamera = () => {
     for (const lm of landmarks) {
       if ((lm.visibility ?? 0) > 0.5) {
         ctx.beginPath();
-        ctx.arc(lm.x * w, lm.y * h, 5, 0, 2 * Math.PI);
+        ctx.arc((1 - lm.x) * w, lm.y * h, 5, 0, 2 * Math.PI);
         ctx.fill();
       }
     }

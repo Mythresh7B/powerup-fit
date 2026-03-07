@@ -53,45 +53,82 @@ export function extractAngles(landmarks: Landmark[]): Angles {
   };
 }
 
+// Exponential moving average smoother for angle values
+class AngleSmoother {
+  private values: Record<string, number> = {};
+  private alpha = 0.4; // smoothing factor (0-1, lower = smoother)
+
+  smooth(key: string, value: number): number {
+    if (!(key in this.values)) {
+      this.values[key] = value;
+      return value;
+    }
+    this.values[key] = this.alpha * value + (1 - this.alpha) * this.values[key];
+    return this.values[key];
+  }
+
+  reset() {
+    this.values = {};
+  }
+}
+
 export class RepCounter {
   stage: RepStage = null;
   count = 0;
   private holdStart = 0;
+  private smoother = new AngleSmoother();
+  private lastCountTime = 0;
+  private minRepInterval = 600; // ms - prevents double-counting
 
   reset() {
     this.stage = null;
     this.count = 0;
     this.holdStart = 0;
+    this.smoother.reset();
+    this.lastCountTime = 0;
   }
 
   update(exercise: Exercise, angles: Angles): boolean {
     let counted = false;
-    const avgElbow = (angles.left_elbow + angles.right_elbow) / 2;
-    const avgKnee = (angles.left_knee + angles.right_knee) / 2;
-    const avgHip = (angles.left_hip + angles.right_hip) / 2;
+    const now = Date.now();
+
+    // Smooth the angles to reduce jitter
+    const avgElbow = this.smoother.smooth('elbow', (angles.left_elbow + angles.right_elbow) / 2);
+    const avgKnee = this.smoother.smooth('knee', (angles.left_knee + angles.right_knee) / 2);
+    const avgHip = this.smoother.smooth('hip', (angles.left_hip + angles.right_hip) / 2);
+    const avgShoulder = this.smoother.smooth('shoulder', (angles.left_shoulder + angles.right_shoulder) / 2);
+
+    // Debounce: don't count if too soon after last rep
+    const canCount = (now - this.lastCountTime) > this.minRepInterval;
 
     switch (exercise) {
       case 'bicep_curl':
-        if (avgElbow < 60) this.stage = 'down';
-        if (this.stage === 'down' && avgElbow > 160) {
+        // Down = arm extended (angle > 150), Up = arm curled (angle < 50)
+        if (avgElbow > 150) this.stage = 'down';
+        if (this.stage === 'down' && avgElbow < 50 && canCount) {
           this.count++;
           this.stage = 'up';
+          this.lastCountTime = now;
           counted = true;
         }
         break;
       case 'shoulder_press':
-        if (avgElbow < 100) this.stage = 'down';
-        if (this.stage === 'down' && avgElbow > 160) {
+        // Down = arms bent (angle < 90), Up = arms extended overhead (angle > 155)
+        if (avgElbow < 90 && avgShoulder > 80) this.stage = 'down';
+        if (this.stage === 'down' && avgElbow > 155 && canCount) {
           this.count++;
           this.stage = 'up';
+          this.lastCountTime = now;
           counted = true;
         }
         break;
       case 'squat':
-        if (avgKnee < 100) this.stage = 'down';
-        if (this.stage === 'down' && avgKnee > 160) {
+        // Down = knees bent (angle < 110), Up = standing (angle > 155)
+        if (avgKnee < 110) this.stage = 'down';
+        if (this.stage === 'down' && avgKnee > 155 && canCount) {
           this.count++;
           this.stage = 'up';
+          this.lastCountTime = now;
           counted = true;
         }
         break;
@@ -104,6 +141,7 @@ export class RepCounter {
           if (Date.now() - this.holdStart >= 5000) {
             this.count++;
             this.holdStart = Date.now();
+            this.lastCountTime = now;
             counted = true;
           }
         } else {
