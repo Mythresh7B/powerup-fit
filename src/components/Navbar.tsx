@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { label: 'Dashboard', path: '/dashboard' },
+  { label: 'Practice', path: '/practice' },
+  { label: 'Levels', path: '/levels' },
   { label: 'History', path: '/history' },
   { label: 'Leaderboard', path: '/leaderboard' },
+  { label: 'Profile', path: '/profile' },
 ];
 
 const Navbar = () => {
@@ -24,8 +26,8 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 glass-card border-b border-border/50 px-6 py-3 flex items-center justify-between">
-      <Link to="/" className="font-display font-bold text-xl gradient-text">
+    <nav className="sticky top-0 z-50 glass-card border-b border-border/50 px-4 py-3 flex items-center justify-between">
+      <Link to="/menu" className="font-display font-bold text-xl gradient-text">
         PowerUp
       </Link>
       <div className="flex items-center gap-1">
@@ -43,7 +45,6 @@ const Navbar = () => {
       <div className="flex items-center gap-3">
         <span className="text-sm text-muted-foreground">
           {user?.username}
-          {user?.isGuest && <span className="ml-1 text-xs">(Guest)</span>}
         </span>
         <Button variant="ghost" size="sm" onClick={handleLogout}>
           Logout
