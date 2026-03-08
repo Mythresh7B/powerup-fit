@@ -50,6 +50,7 @@ const App = () => (
         <div className="dark">
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/menu" element={<RouteGuard guestAllowed><Menu /></RouteGuard>} />
             <Route path="/practice" element={<RouteGuard guestAllowed><Dashboard /></RouteGuard>} />
             <Route path="/levels" element={<RouteGuard guestAllowed><Levels /></RouteGuard>} />
