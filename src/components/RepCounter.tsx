@@ -1,8 +1,10 @@
+import { memo } from 'react';
 import { useSessionStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
-const RepCounterDisplay = () => {
-  const { repCount, targetReps } = useSessionStore();
+const RepCounterDisplay = memo(() => {
+  const repCount = useSessionStore((s) => s.repCount);
+  const targetReps = useSessionStore((s) => s.targetReps);
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -21,6 +23,8 @@ const RepCounterDisplay = () => {
       <span className="text-sm text-muted-foreground">/ {targetReps} target</span>
     </div>
   );
-};
+});
+
+RepCounterDisplay.displayName = 'RepCounterDisplay';
 
 export default RepCounterDisplay;
