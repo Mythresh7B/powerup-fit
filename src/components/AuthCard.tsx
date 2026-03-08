@@ -64,10 +64,10 @@ const AuthCard = () => {
         if (error) throw error;
         if (data.user) {
           const { data: profile } = await supabase
-67:             .from('profiles' as any)
-68:             .select('*')
-69:             .eq('id', data.user.id)
-70:             .single();
+            .from('profiles' as any)
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
           if (profile) {
             setUser({
               id: data.user.id,
