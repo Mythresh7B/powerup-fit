@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
 import Menu from "./pages/Menu";
 import Dashboard from "./pages/Dashboard";
@@ -41,6 +43,46 @@ function RouteGuard({ children, guestAllowed = false }: { children: React.ReactN
   return <>{children}</>;
 }
 
+function AuthListener() {
+  const { setUser, user } = useAuthStore();
+
+  useEffect(() => {
+    // Set up listener BEFORE checking session
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          if (profile) {
+            setUser({
+              id: session.user.id,
+              username: (profile as any).username || 'User',
+              level: (profile as any).level || 1,
+              total_xp: (profile as any).total_xp || 0,
+              streak: (profile as any).streak || 0,
+              stat_attack: (profile as any).stat_attack || 0,
+              stat_defence: (profile as any).stat_defence || 0,
+              stat_focus: (profile as any).stat_focus || 0,
+              stat_agility: (profile as any).stat_agility || 0,
+              avatar_url: (profile as any).avatar_url || null,
+              bio: (profile as any).bio || null,
+            });
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [setUser]);
+
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -48,6 +90,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <div className="dark">
+          <AuthListener />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/verify-email" element={<VerifyEmail />} />

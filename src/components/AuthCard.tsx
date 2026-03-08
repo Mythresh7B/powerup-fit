@@ -39,7 +39,7 @@ const AuthCard = () => {
           password,
           options: {
             data: { username },
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: `${window.location.origin}/menu`,
           },
         });
         if (error) throw error;

@@ -28,16 +28,30 @@ const VerifyEmail = () => {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  // Poll for verification status
+  // Listen for auth state change (user clicks verification link and returns)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
+          setStatus('verified');
+          sessionStorage.removeItem('verify_email');
+          setTimeout(() => navigate('/menu'), 1500);
+        }
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  // Also poll for verification status
   useEffect(() => {
     if (!email || status === 'verified') return;
     const interval = setInterval(async () => {
-      // Try signing in to check if email is confirmed
       const { data } = await supabase.auth.getSession();
       if (data.session?.user?.email_confirmed_at) {
         setStatus('verified');
+        sessionStorage.removeItem('verify_email');
         clearInterval(interval);
-        setTimeout(() => navigate('/menu'), 2000);
+        setTimeout(() => navigate('/menu'), 1500);
       }
     }, 5000);
     return () => clearInterval(interval);
@@ -77,6 +91,7 @@ const VerifyEmail = () => {
             <p className="text-sm font-mono text-primary font-bold">{email}</p>
             <p className="text-xs font-mono text-muted-foreground">
               Click the link in the email to activate your PowerUp account.
+              The link expires in 24 hours.
             </p>
 
             {resendCount >= MAX_RESENDS ? (
