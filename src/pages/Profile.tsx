@@ -141,12 +141,27 @@ const Profile = () => {
     if (file.size > 2 * 1024 * 1024) { toast.error('Max 2MB'); return; }
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { toast.error('Only JPG, PNG, WebP'); return; }
 
-    const filePath = `${user!.id}/avatar.jpg`;
-    const { error: uploadErr } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+    const timestamp = Date.now();
+    const newFilePath = `${user!.id}_${timestamp}.jpg`;
+
+    // Delete old avatar file if it exists
+    if (stats.avatar_url) {
+      try {
+        const oldUrl = stats.avatar_url;
+        const match = oldUrl.match(/avatars\/(.+?)(\?|$)/);
+        if (match?.[1]) {
+          await supabase.storage.from('avatars').remove([match[1]]);
+        }
+      } catch (err) {
+        console.warn('Failed to delete old avatar:', err);
+      }
+    }
+
+    const { error: uploadErr } = await supabase.storage.from('avatars').upload(newFilePath, file, { upsert: true });
     if (uploadErr) { toast.error('Upload failed'); return; }
 
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-    const publicUrl = urlData.publicUrl + '?t=' + Date.now();
+    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(newFilePath);
+    const publicUrl = urlData.publicUrl;
 
     await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user!.id);
     updateAvatar(publicUrl);
