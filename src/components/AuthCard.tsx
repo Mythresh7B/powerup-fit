@@ -37,7 +37,10 @@ const AuthCard = () => {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { username } },
+          options: {
+            data: { username },
+            emailRedirectTo: window.location.origin,
+          },
         });
         if (error) throw error;
         if (data.user) {
@@ -46,15 +49,26 @@ const AuthCard = () => {
             id: data.user.id,
             username,
           } as any);
-          setUser({
-            id: data.user.id,
-            username,
-            level: 1,
-            total_xp: 0,
-            streak: 0,
-          });
-          toast.success('Account created! Welcome to PowerUp.');
-          navigate('/menu');
+
+          // If email confirmation is required, Supabase returns identities=[] or email_confirmed_at=null
+          if (!data.user.email_confirmed_at && data.user.identities?.length === 0) {
+            toast.error('An account with this email already exists.');
+          } else if (!data.session) {
+            // Email confirmation required — redirect to verify page
+            sessionStorage.setItem('verify_email', email);
+            navigate(`/verify-email?email=${encodeURIComponent(email)}`);
+          } else {
+            // Auto-confirmed (e.g. if confirm email is disabled in Supabase)
+            setUser({
+              id: data.user.id,
+              username,
+              level: 1,
+              total_xp: 0,
+              streak: 0,
+            });
+            toast.success('Account created! Welcome to PowerUp.');
+            navigate('/menu');
+          }
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });

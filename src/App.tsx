@@ -14,6 +14,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import Instructions from "./pages/Instructions";
 import Social from "./pages/Social";
+import VerifyEmail from "./pages/VerifyEmail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
         <div className="dark">
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/menu" element={<RouteGuard guestAllowed><Menu /></RouteGuard>} />
             <Route path="/practice" element={<RouteGuard guestAllowed><Dashboard /></RouteGuard>} />
             <Route path="/levels" element={<RouteGuard guestAllowed><Levels /></RouteGuard>} />

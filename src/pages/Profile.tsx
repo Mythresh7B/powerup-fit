@@ -4,7 +4,7 @@ import { useAuthStore } from '@/lib/store';
 import { supabase } from '@/integrations/supabase/client';
 import { getXPProgress, getLevel, getLevelTitle, getHP } from '@/lib/xp';
 import GlobalHeader from '@/components/GlobalHeader';
-import CharacterDisplay from '@/components/CharacterDisplay';
+import CharacterViewer from '@/components/CharacterViewer';
 import StatBar from '@/components/StatBar';
 import StatsBreakdownTable from '@/components/StatsBreakdownTable';
 import BossDefeatBadges from '@/components/BossDefeatBadges';
@@ -141,12 +141,27 @@ const Profile = () => {
     if (file.size > 2 * 1024 * 1024) { toast.error('Max 2MB'); return; }
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { toast.error('Only JPG, PNG, WebP'); return; }
 
-    const filePath = `${user!.id}/avatar.jpg`;
-    const { error: uploadErr } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+    const timestamp = Date.now();
+    const newFilePath = `${user!.id}_${timestamp}.jpg`;
+
+    // Delete old avatar file if it exists
+    if (stats.avatar_url) {
+      try {
+        const oldUrl = stats.avatar_url;
+        const match = oldUrl.match(/avatars\/(.+?)(\?|$)/);
+        if (match?.[1]) {
+          await supabase.storage.from('avatars').remove([match[1]]);
+        }
+      } catch (err) {
+        console.warn('Failed to delete old avatar:', err);
+      }
+    }
+
+    const { error: uploadErr } = await supabase.storage.from('avatars').upload(newFilePath, file, { upsert: true });
     if (uploadErr) { toast.error('Upload failed'); return; }
 
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-    const publicUrl = urlData.publicUrl + '?t=' + Date.now();
+    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(newFilePath);
+    const publicUrl = urlData.publicUrl;
 
     await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user!.id);
     updateAvatar(publicUrl);
@@ -248,18 +263,19 @@ const Profile = () => {
 
         {/* Character + Stats */}
         <div className="flex flex-col lg:flex-row gap-6">
-          <div className="flex-1 glass-card p-6 flex flex-col items-center justify-center">
+          <div className="flex-1 glass-card p-0 overflow-hidden rounded-xl flex flex-col items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%)', boxShadow: '0 0 30px rgba(139, 92, 246, 0.15)' }}>
             {loading ? (
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <CharacterDisplay level={currentLevel} username={user.username} />
-                <div className="mt-4">
+                <CharacterViewer level={currentLevel} username={user.username} />
+                <div className="p-4 flex flex-col items-center">
                   <XPRing totalXp={user.total_xp || 0} />
+                  <p className="text-xs font-mono text-muted-foreground mt-2">
+                    {xpProgress.level < 20 ? `${xpProgress.xpNeeded - xpProgress.xpThisLevel} XP to next level` : 'Max level reached!'}
+                  </p>
                 </div>
-                <p className="text-xs font-mono text-muted-foreground mt-2">
-                  {xpProgress.level < 20 ? `${xpProgress.xpNeeded - xpProgress.xpThisLevel} XP to next level` : 'Max level reached!'}
-                </p>
               </>
             )}
           </div>
