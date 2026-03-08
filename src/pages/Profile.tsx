@@ -81,6 +81,21 @@ const Profile = () => {
 
   // Username check
   useEffect(() => {
+    if (!user || !editingUsername || newUsername.length < 3) { setUsernameAvailable(null); return; }
+    const timer = setTimeout(async () => {
+      const { data } = await supabase.from('profiles').select('id').ilike('username', newUsername).neq('id', user.id).limit(1);
+      setUsernameAvailable(!data || data.length === 0);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [newUsername, editingUsername, user]);
+
+  if (!user) return null;
+
+  const currentLevel = user.level || getLevel(user.total_xp || 0);
+  const xpProgress = getXPProgress(user.total_xp || 0);
+  const hp = getHP(currentLevel);
+  const title = getLevelTitle(currentLevel);
+  const totalPower = (stats.stat_attack || 0) + (stats.stat_defence || 0) + (stats.stat_focus || 0) + (stats.stat_agility || 0);
     if (!editingUsername || newUsername.length < 3) { setUsernameAvailable(null); return; }
     const timer = setTimeout(async () => {
       const { data } = await supabase.from('profiles').select('id').ilike('username', newUsername).neq('id', user!.id).limit(1);
