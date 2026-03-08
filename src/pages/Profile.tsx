@@ -124,7 +124,7 @@ const Profile = () => {
 
   const handleSaveBio = async () => {
     const trimmed = newBio.trim().slice(0, 100);
-    const { error } = await supabase.from('profiles').update({ bio: trimmed }).eq('id', user!.id);
+    const { error } = await supabase.rpc('update_profile_metadata', { p_bio: trimmed });
     if (error) {
       toast.error('Failed to update bio');
     } else {
