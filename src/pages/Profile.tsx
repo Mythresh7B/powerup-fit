@@ -170,9 +170,9 @@ const Profile = () => {
       }
     }
 
-    const { error: uploadErr } = await supabase.storage.from('avatars').upload(newFilePath, blob, {
+    const file = new File([blob], `${timestamp}.jpg`, { type: 'image/jpeg' });
+    const { error: uploadErr } = await supabase.storage.from('avatars').upload(newFilePath, file, {
       contentType: 'image/jpeg',
-      upsert: true,
     });
     if (uploadErr) {
       console.error('Avatar upload error:', uploadErr);
