@@ -142,7 +142,8 @@ const Profile = () => {
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { toast.error('Only JPG, PNG, WebP'); return; }
 
     const timestamp = Date.now();
-    const newFilePath = `${user!.id}_${timestamp}.jpg`;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const newFilePath = `${user!.id}/${timestamp}.${ext}`;
 
     // Delete old avatar file if it exists
     if (stats.avatar_url) {
