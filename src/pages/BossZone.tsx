@@ -145,51 +145,7 @@ const BossZone = () => {
     toast.info(`⚔️ Gauntlet: Phase 1 — ${EXERCISE_LABELS[firstPhase.exercise]} × ${firstPhase.repsRequired}`);
   };
 
-  // Watch for phase completion
-  useEffect(() => {
-    if (!battling || !boss || !currentPhaseData || !gauntlet.isActive) return;
-    if (session.correctReps >= currentPhaseData.repsRequired && !phaseComplete) {
-      setPhaseComplete(true);
-    }
-  }, [session.correctReps, battling, boss, currentPhaseData, gauntlet.isActive, phaseComplete]);
 
-  useEffect(() => {
-    if (!phaseComplete || !boss || !currentPhaseData) return;
-
-    const phaseNum = gauntlet.currentPhase;
-    phaseRepsAccumulated.current[phaseNum] = session.correctReps;
-
-    // Accumulate stat deltas
-    const deltas = calculateStatDeltas(currentPhaseData.exercise, session.correctReps);
-    phaseStatDeltas.current.attack += deltas.attack;
-    phaseStatDeltas.current.defence += deltas.defence;
-    phaseStatDeltas.current.focus += deltas.focus;
-    phaseStatDeltas.current.agility += deltas.agility;
-
-    gauntlet.completePhase(phaseNum, session.correctReps);
-
-    const allComplete = gauntlet.phasesComplete.filter(Boolean).length + 1 >= boss.phases.length;
-
-    if (allComplete) {
-      // All phases done — trigger battle
-      setTimeout(() => handleBattleResolution(), 1000);
-    } else {
-      // Advance to next phase
-      toast.success(`Phase ${phaseNum} complete!`);
-      setTimeout(() => {
-        const nextPhase = boss.phases[phaseNum]; // 0-indexed: phaseNum is already the next
-        if (nextPhase) {
-          session.resetSession();
-          session.setExercise(nextPhase.exercise as any);
-          session.setTargetReps(nextPhase.repsRequired);
-          session.startSession();
-          setPhaseComplete(false);
-        }
-      }, 1500);
-    }
-
-    setPhaseComplete(false);
-  }, [phaseComplete]);
 
   const handleBattleResolution = async () => {
     session.endSession();
