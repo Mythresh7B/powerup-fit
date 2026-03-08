@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, useSessionStore } from '@/lib/store';
 import { supabase } from '@/integrations/supabase/client';
-import { calculateXP } from '@/lib/xp';
+import { calculateXP, getLevel } from '@/lib/xp';
 import GlobalHeader from '@/components/GlobalHeader';
 import PoseCamera from '@/components/PoseCamera';
 import RepCounterDisplay from '@/components/RepCounter';
