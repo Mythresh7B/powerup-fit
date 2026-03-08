@@ -4,7 +4,7 @@ import { useAuthStore } from '@/lib/store';
 import { supabase } from '@/integrations/supabase/client';
 import { getXPProgress, getLevel, getLevelTitle, getHP } from '@/lib/xp';
 import GlobalHeader from '@/components/GlobalHeader';
-import CharacterDisplay from '@/components/CharacterDisplay';
+import CharacterViewer from '@/components/CharacterViewer';
 import StatBar from '@/components/StatBar';
 import StatsBreakdownTable from '@/components/StatsBreakdownTable';
 import BossDefeatBadges from '@/components/BossDefeatBadges';
