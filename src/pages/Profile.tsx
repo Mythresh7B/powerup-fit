@@ -79,14 +79,6 @@ const Profile = () => {
     fetchAll();
   }, [user, navigate]);
 
-  if (!user) return null;
-
-  const currentLevel = user.level || getLevel(user.total_xp || 0);
-  const xpProgress = getXPProgress(user.total_xp || 0);
-  const hp = getHP(currentLevel);
-  const title = getLevelTitle(currentLevel);
-  const totalPower = (stats.stat_attack || 0) + (stats.stat_defence || 0) + (stats.stat_focus || 0) + (stats.stat_agility || 0);
-
   // Username check
   useEffect(() => {
     if (!editingUsername || newUsername.length < 3) { setUsernameAvailable(null); return; }
