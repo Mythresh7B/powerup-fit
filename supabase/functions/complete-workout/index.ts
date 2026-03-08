@@ -85,13 +85,32 @@ Deno.serve(async (req) => {
     const safeFatigue = Math.max(0, Math.min(Number(fatigue_score) || 0, 1));
     const safeDuration = Math.max(0, Math.min(Math.floor(Number(duration_seconds) || 0), 7200));
 
-    const { data: profile, error: profileError } = await supabase
+    // Use service role to bypass RLS for profile read/write
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    let { data: profile, error: profileError } = await adminClient
       .from("profiles")
       .select("total_xp, streak, level, stat_attack, stat_defence, stat_focus, stat_agility")
       .eq("id", userId)
       .single();
 
-    if (profileError || !profile) {
+    // Auto-create profile if missing
+    if (profileError && profileError.code === "PGRST116") {
+      const { data: newProfile, error: createErr } = await adminClient
+        .from("profiles")
+        .insert({ id: userId, username: "User" })
+        .select("total_xp, streak, level, stat_attack, stat_defence, stat_focus, stat_agility")
+        .single();
+      if (createErr) {
+        return new Response(JSON.stringify({ error: "Failed to create profile" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      profile = newProfile;
+    } else if (profileError || !profile) {
       return new Response(JSON.stringify({ error: "Profile not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
