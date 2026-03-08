@@ -74,11 +74,13 @@ export const useAuthStore = create<AuthState>()(
         ...state,
         user: state.user ? { ...state.user, isGuest: undefined } : null,
       }),
-      onRehydrate: () => (state) => {
-        // After rehydration, derive isGuest from user id instead of trusting localStorage
-        if (state?.user) {
-          state.user.isGuest = state.user.id === 'guest';
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted as object) };
+        // Derive isGuest from user id instead of trusting localStorage
+        if ((merged as AuthState).user) {
+          (merged as AuthState).user!.isGuest = (merged as AuthState).user!.id === 'guest';
         }
+        return merged as AuthState;
       },
     }
   )
