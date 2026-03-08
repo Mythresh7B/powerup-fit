@@ -193,7 +193,6 @@ const Profile = () => {
     setStats(s => ({ ...s, avatar_url: publicUrl }));
     toast.success('Avatar updated!');
   };
-  };
 
   // Chart data
   const xpChartData = workouts.slice(0, 10).reverse().map(w => ({
