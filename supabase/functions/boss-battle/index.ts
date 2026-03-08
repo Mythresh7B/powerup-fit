@@ -79,6 +79,12 @@ Deno.serve(async (req) => {
     }
     const userId = claimsData.claims.sub as string;
 
+    // Service role client for DB operations
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
     const body = await req.json();
     const { boss_index, correct_reps, total_reps, exercise, fatigue_score } = body;
 
@@ -94,8 +100,7 @@ Deno.serve(async (req) => {
     const safeTotal = Math.max(0, Math.min(Math.floor(Number(total_reps) || 0), 1000));
     const safeFatigue = Math.max(0, Math.min(Number(fatigue_score) || 0, 1));
 
-    // Get profile
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await adminClient
       .from("profiles")
       .select("total_xp, streak, level, stat_attack, stat_defence, stat_focus, stat_agility")
       .eq("id", userId)
