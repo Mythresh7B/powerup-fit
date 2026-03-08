@@ -145,9 +145,9 @@ Deno.serve(async (req) => {
     const rounds = Math.min(roundsToKillBoss, roundsToKillPlayer);
 
     // Check if boss was previously defeated
-    const { data: existingProgress } = await supabase
+    const { data: existingProgress } = await adminClient
       .from("boss_progress")
-      .select("defeated")
+      .select("defeated, attempts")
       .eq("user_id", userId)
       .eq("boss_index", bossIdx)
       .single();
@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
     const newTotalXp = (profile.total_xp || 0) + totalXpEarned;
     const newLevel = getLevel(newTotalXp);
 
-    await supabase.from("profiles").update({
+    await adminClient.from("profiles").update({
       total_xp: newTotalXp,
       level: newLevel,
       stat_attack: (profile.stat_attack || 0) + statDeltas.attack,
@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
     }).eq("id", userId);
 
     // Insert workout log
-    await supabase.from("workout_logs").insert({
+    await adminClient.from("workout_logs").insert({
       user_id: userId,
       exercise: exercise === "mixed" ? "bicep_curl" : exercise,
       total_reps: safeTotal,
@@ -189,17 +189,17 @@ Deno.serve(async (req) => {
     // Upsert boss progress
     if (existingProgress) {
       const updateData: Record<string, unknown> = {
-        attempts: (existingProgress as any).attempts ? (existingProgress as any).attempts + 1 : 1,
+        attempts: (existingProgress.attempts || 0) + 1,
         last_attempted_at: new Date().toISOString(),
       };
       if (playerWins && !existingProgress.defeated) {
         updateData.defeated = true;
         updateData.first_defeated_at = new Date().toISOString();
       }
-      await supabase.from("boss_progress").update(updateData)
+      await adminClient.from("boss_progress").update(updateData)
         .eq("user_id", userId).eq("boss_index", bossIdx);
     } else {
-      await supabase.from("boss_progress").insert({
+      await adminClient.from("boss_progress").insert({
         user_id: userId,
         boss_index: bossIdx,
         defeated: playerWins,
