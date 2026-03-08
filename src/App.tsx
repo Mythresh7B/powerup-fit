@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Menu from "./pages/Menu";
 import Dashboard from "./pages/Dashboard";
 import Levels from "./pages/Levels";
+import BossZone from "./pages/BossZone";
 import History from "./pages/History";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
