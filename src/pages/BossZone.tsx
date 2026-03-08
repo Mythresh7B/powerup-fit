@@ -68,6 +68,54 @@ const BossZone = () => {
     setLoading(false);
   };
 
+  // Watch for phase completion
+  useEffect(() => {
+    if (!battling || !selectedBoss || !gauntlet.isActive) return;
+    const boss = BOSSES.find(b => b.index === selectedBoss);
+    const phaseData = boss?.phases[gauntlet.currentPhase - 1];
+    if (!phaseData) return;
+    if (session.correctReps >= phaseData.repsRequired && !phaseComplete) {
+      setPhaseComplete(true);
+    }
+  }, [session.correctReps, battling, selectedBoss, gauntlet.isActive, gauntlet.currentPhase, phaseComplete]);
+
+  useEffect(() => {
+    if (!phaseComplete || !selectedBoss) return;
+    const bossData = BOSSES.find(b => b.index === selectedBoss);
+    const phaseData = bossData?.phases[gauntlet.currentPhase - 1];
+    if (!bossData || !phaseData) return;
+
+    const phaseNum = gauntlet.currentPhase;
+    phaseRepsAccumulated.current[phaseNum] = session.correctReps;
+
+    const deltas = calculateStatDeltas(phaseData.exercise, session.correctReps);
+    phaseStatDeltas.current.attack += deltas.attack;
+    phaseStatDeltas.current.defence += deltas.defence;
+    phaseStatDeltas.current.focus += deltas.focus;
+    phaseStatDeltas.current.agility += deltas.agility;
+
+    gauntlet.completePhase(phaseNum, session.correctReps);
+
+    const allComplete = gauntlet.phasesComplete.filter(Boolean).length + 1 >= bossData.phases.length;
+
+    if (allComplete) {
+      setTimeout(() => handleBattleResolution(), 1000);
+    } else {
+      toast.success(`Phase ${phaseNum} complete!`);
+      setTimeout(() => {
+        const nextPhase = bossData.phases[phaseNum];
+        if (nextPhase) {
+          session.resetSession();
+          session.setExercise(nextPhase.exercise as any);
+          session.setTargetReps(nextPhase.repsRequired);
+          session.startSession();
+          setPhaseComplete(false);
+        }
+      }, 1500);
+    }
+    setPhaseComplete(false);
+  }, [phaseComplete]);
+
   if (!user) return null;
 
   const userLevel = user.level || getLevel(user.total_xp || 0);
