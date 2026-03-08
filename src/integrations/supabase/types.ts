@@ -108,6 +108,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_created_email_sent: boolean
           avatar_url: string | null
           bio: string | null
           id: string
@@ -123,8 +124,10 @@ export type Database = {
           total_xp: number | null
           updated_at: string | null
           username: string
+          welcome_email_sent: boolean
         }
         Insert: {
+          account_created_email_sent?: boolean
           avatar_url?: string | null
           bio?: string | null
           id: string
@@ -140,8 +143,10 @@ export type Database = {
           total_xp?: number | null
           updated_at?: string | null
           username: string
+          welcome_email_sent?: boolean
         }
         Update: {
+          account_created_email_sent?: boolean
           avatar_url?: string | null
           bio?: string | null
           id?: string
@@ -157,6 +162,7 @@ export type Database = {
           total_xp?: number | null
           updated_at?: string | null
           username?: string
+          welcome_email_sent?: boolean
         }
         Relationships: []
       }
