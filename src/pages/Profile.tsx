@@ -417,6 +417,7 @@ const Profile = () => {
           </div>
         )}
       </div>
+      <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCroppedUpload} />
     </div>
   );
 };
