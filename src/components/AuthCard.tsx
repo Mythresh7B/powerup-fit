@@ -64,10 +64,10 @@ const AuthCard = () => {
         if (error) throw error;
         if (data.user) {
           const { data: profile } = await supabase
-            .from('profiles' as any)
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
+67:             .from('profiles' as any)
+68:             .select('*')
+69:             .eq('id', data.user.id)
+70:             .single();
           if (profile) {
             setUser({
               id: data.user.id,
@@ -75,6 +75,10 @@ const AuthCard = () => {
               level: (profile as any).level || 1,
               total_xp: (profile as any).total_xp || 0,
               streak: (profile as any).streak || 0,
+              stat_attack: (profile as any).stat_attack || 0,
+              stat_defence: (profile as any).stat_defence || 0,
+              stat_focus: (profile as any).stat_focus || 0,
+              stat_agility: (profile as any).stat_agility || 0,
             });
           }
           toast.success('Welcome back!');
