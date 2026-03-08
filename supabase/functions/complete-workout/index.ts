@@ -12,6 +12,9 @@ const LEVEL_XP_THRESHOLDS = [
   35100, 42500, 51000, 60700, 71700, 84200,
 ];
 
+// Level bonus XP rewards (level 1-20)
+const LEVEL_XP_REWARDS = Array.from({ length: 20 }, (_, i) => 50 + (i + 1) * 25);
+
 function getLevel(totalXp: number): number {
   let level = 1;
   for (let i = 0; i < LEVEL_XP_THRESHOLDS.length; i++) {
@@ -71,7 +74,7 @@ Deno.serve(async (req) => {
     const userId = claimsData.claims.sub;
 
     const body = await req.json();
-    const { exercise, total_reps, correct_reps, fatigue_score, duration_seconds } = body;
+    const { exercise, total_reps, correct_reps, fatigue_score, duration_seconds, level_id } = body;
 
     const validExercises = ["bicep_curl", "shoulder_press", "squat", "plank"];
     if (!exercise || !validExercises.includes(exercise)) {
@@ -85,7 +88,13 @@ Deno.serve(async (req) => {
     const safeFatigue = Math.max(0, Math.min(Number(fatigue_score) || 0, 1));
     const safeDuration = Math.max(0, Math.min(Math.floor(Number(duration_seconds) || 0), 7200));
 
-    // Use service role to bypass RLS for profile read/write
+    // Validate and compute level bonus XP server-side
+    let levelBonusXp = 0;
+    if (level_id != null) {
+      const safeLevelId = Math.max(1, Math.min(Math.floor(Number(level_id) || 0), 20));
+      levelBonusXp = LEVEL_XP_REWARDS[safeLevelId - 1] || 0;
+    }
+
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -97,7 +106,6 @@ Deno.serve(async (req) => {
       .eq("id", userId)
       .single();
 
-    // Auto-create profile if missing
     if (profileError && profileError.code === "PGRST116") {
       const { data: newProfile, error: createErr } = await adminClient
         .from("profiles")
@@ -117,13 +125,13 @@ Deno.serve(async (req) => {
     }
 
     const xpEarned = calculateXP(safeCorrect, safeTotal, safeFatigue, profile.streak || 0);
+    const totalXpGained = xpEarned + levelBonusXp;
     const statDeltas = calculateStatDeltas(exercise, safeCorrect);
 
-    // Insert workout log
     const { error: insertError } = await adminClient.from("workout_logs").insert({
       user_id: userId, exercise, duration_seconds: safeDuration,
       total_reps: safeTotal, correct_reps: safeCorrect,
-      xp_earned: xpEarned, fatigue_score: safeFatigue,
+      xp_earned: totalXpGained, fatigue_score: safeFatigue,
     });
 
     if (insertError) {
@@ -132,7 +140,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const newTotalXp = (profile.total_xp || 0) + xpEarned;
+    const newTotalXp = (profile.total_xp || 0) + totalXpGained;
     const newLevel = getLevel(newTotalXp);
 
     const { error: updateError } = await adminClient
@@ -156,10 +164,11 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        xp_earned: xpEarned,
+        xp_earned: totalXpGained,
         total_xp: newTotalXp,
         level: newLevel,
         stat_deltas: statDeltas,
+        level_bonus_xp: levelBonusXp,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
