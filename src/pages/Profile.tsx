@@ -263,18 +263,19 @@ const Profile = () => {
 
         {/* Character + Stats */}
         <div className="flex flex-col lg:flex-row gap-6">
-          <div className="flex-1 glass-card p-6 flex flex-col items-center justify-center">
+          <div className="flex-1 glass-card p-0 overflow-hidden rounded-xl flex flex-col items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%)', boxShadow: '0 0 30px rgba(139, 92, 246, 0.15)' }}>
             {loading ? (
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <CharacterDisplay level={currentLevel} username={user.username} />
-                <div className="mt-4">
+                <CharacterViewer level={currentLevel} username={user.username} />
+                <div className="p-4 flex flex-col items-center">
                   <XPRing totalXp={user.total_xp || 0} />
+                  <p className="text-xs font-mono text-muted-foreground mt-2">
+                    {xpProgress.level < 20 ? `${xpProgress.xpNeeded - xpProgress.xpThisLevel} XP to next level` : 'Max level reached!'}
+                  </p>
                 </div>
-                <p className="text-xs font-mono text-muted-foreground mt-2">
-                  {xpProgress.level < 20 ? `${xpProgress.xpNeeded - xpProgress.xpThisLevel} XP to next level` : 'Max level reached!'}
-                </p>
               </>
             )}
           </div>
