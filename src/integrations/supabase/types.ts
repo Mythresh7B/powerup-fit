@@ -215,7 +215,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_profile_metadata: {
+        Args: {
+          p_avatar_url?: string
+          p_bio?: string
+          p_last_username_change?: string
+          p_username?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

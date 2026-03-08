@@ -97,15 +97,11 @@ const Levels = () => {
       if (!user.isGuest) {
         try {
           const { data, error } = await supabase.functions.invoke('complete-workout', {
-            body: { exercise: selectedLevel.exercise, total_reps: session.repCount, correct_reps: session.correctReps, fatigue_score: session.fatigueIndex, duration_seconds: durationSeconds },
+            body: { exercise: selectedLevel.exercise, total_reps: session.repCount, correct_reps: session.correctReps, fatigue_score: session.fatigueIndex, duration_seconds: durationSeconds, level_id: selectedLevel.level },
           });
           if (!error && data) {
-            const bonusXp = selectedLevel.xpReward;
-            const totalWithBonus = data.total_xp + bonusXp;
-            const newLevel = getLevel(totalWithBonus);
-            await supabase.from('profiles').update({ total_xp: totalWithBonus, level: newLevel, updated_at: new Date().toISOString() }).eq('id', user.id);
-            setUser({ ...user, total_xp: totalWithBonus, level: newLevel });
-            toast.success(`🎉 ${selectedLevel.monsterName} defeated! +${data.xp_earned + bonusXp} XP!`);
+            setUser({ ...user, total_xp: data.total_xp, level: data.level });
+            toast.success(`🎉 ${selectedLevel.monsterName} defeated! +${data.xp_earned} XP!`);
           }
         } catch { toast.error('Failed to save workout'); }
       } else {

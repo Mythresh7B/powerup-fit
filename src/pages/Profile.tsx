@@ -109,10 +109,10 @@ const Profile = () => {
         return;
       }
     }
-    const { error } = await supabase.from('profiles').update({
-      username: newUsername,
-      last_username_change: new Date().toISOString(),
-    }).eq('id', user!.id);
+    const { error } = await supabase.rpc('update_profile_metadata', {
+      p_username: newUsername,
+      p_last_username_change: new Date().toISOString(),
+    });
     if (error) {
       toast.error('Failed to update username');
     } else {
@@ -124,7 +124,7 @@ const Profile = () => {
 
   const handleSaveBio = async () => {
     const trimmed = newBio.trim().slice(0, 100);
-    const { error } = await supabase.from('profiles').update({ bio: trimmed }).eq('id', user!.id);
+    const { error } = await supabase.rpc('update_profile_metadata', { p_bio: trimmed });
     if (error) {
       toast.error('Failed to update bio');
     } else {
@@ -164,7 +164,7 @@ const Profile = () => {
     const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(newFilePath);
     const publicUrl = urlData.publicUrl;
 
-    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user!.id);
+    await supabase.rpc('update_profile_metadata', { p_avatar_url: publicUrl });
     updateAvatar(publicUrl);
     setStats(s => ({ ...s, avatar_url: publicUrl }));
     toast.success('Avatar updated!');
