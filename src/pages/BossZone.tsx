@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore, useSessionStore } from '@/lib/store';
+import { useAuthStore, useSessionStore, useGauntletStore } from '@/lib/store';
 import { supabase } from '@/integrations/supabase/client';
 import { BOSSES, EXERCISE_LABELS } from '@/lib/bosses';
 import { getLevel, getHP, calculateXP, calculateStatDeltas } from '@/lib/xp';
-import Navbar from '@/components/Navbar';
+import GlobalHeader from '@/components/GlobalHeader';
 import BossCard from '@/components/BossCard';
 import BattleResultModal from '@/components/BattleResultModal';
+import PhaseProgressBar from '@/components/PhaseProgressBar';
 import PoseCamera from '@/components/PoseCamera';
 import RepCounterDisplay from '@/components/RepCounter';
 import FatigueBar from '@/components/FatigueBar';
@@ -14,6 +15,7 @@ import PostureAlert from '@/components/PostureAlert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { useBackLock } from '@/hooks/useBackLock';
 import type { StatDeltas } from '@/lib/xp';
 
 interface BossProgressRecord {
@@ -39,12 +41,17 @@ const BossZone = () => {
   const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
   const session = useSessionStore();
+  const gauntlet = useGauntletStore();
   const [bossProgress, setBossProgress] = useState<BossProgressRecord[]>([]);
   const [selectedBoss, setSelectedBoss] = useState<number | null>(null);
   const [battling, setBattling] = useState(false);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const sessionStartRef = useRef(0);
+  const [phaseComplete, setPhaseComplete] = useState(false);
+  const phaseRepsAccumulated = useRef<Record<number, number>>({});
+  const phaseStatDeltas = useRef<StatDeltas>({ attack: 0, defence: 0, focus: 0, agility: 0 });
+
+  useBackLock();
 
   useEffect(() => {
     if (!user) { navigate('/'); return; }
@@ -61,10 +68,61 @@ const BossZone = () => {
     setLoading(false);
   };
 
+  // Watch for phase completion
+  useEffect(() => {
+    if (!battling || !selectedBoss || !gauntlet.isActive) return;
+    const boss = BOSSES.find(b => b.index === selectedBoss);
+    const phaseData = boss?.phases[gauntlet.currentPhase - 1];
+    if (!phaseData) return;
+    if (session.correctReps >= phaseData.repsRequired && !phaseComplete) {
+      setPhaseComplete(true);
+    }
+  }, [session.correctReps, battling, selectedBoss, gauntlet.isActive, gauntlet.currentPhase, phaseComplete]);
+
+  useEffect(() => {
+    if (!phaseComplete || !selectedBoss) return;
+    const bossData = BOSSES.find(b => b.index === selectedBoss);
+    const phaseData = bossData?.phases[gauntlet.currentPhase - 1];
+    if (!bossData || !phaseData) return;
+
+    const phaseNum = gauntlet.currentPhase;
+    phaseRepsAccumulated.current[phaseNum] = session.correctReps;
+
+    const deltas = calculateStatDeltas(phaseData.exercise, session.correctReps);
+    phaseStatDeltas.current.attack += deltas.attack;
+    phaseStatDeltas.current.defence += deltas.defence;
+    phaseStatDeltas.current.focus += deltas.focus;
+    phaseStatDeltas.current.agility += deltas.agility;
+
+    gauntlet.completePhase(phaseNum, session.correctReps);
+
+    const allComplete = gauntlet.phasesComplete.filter(Boolean).length + 1 >= bossData.phases.length;
+
+    if (allComplete) {
+      setTimeout(() => handleBattleResolution(), 1000);
+    } else {
+      toast.success(`Phase ${phaseNum} complete!`);
+      setTimeout(() => {
+        const nextPhase = bossData.phases[phaseNum];
+        if (nextPhase) {
+          session.resetSession();
+          session.setExercise(nextPhase.exercise as any);
+          session.setTargetReps(nextPhase.repsRequired);
+          session.startSession();
+          setPhaseComplete(false);
+        }
+      }, 1500);
+    }
+    setPhaseComplete(false);
+  }, [phaseComplete]);
+
   if (!user) return null;
 
   const userLevel = user.level || getLevel(user.total_xp || 0);
   const boss = selectedBoss ? BOSSES.find(b => b.index === selectedBoss) : null;
+  const currentPhaseData = boss && gauntlet.isActive
+    ? boss.phases[gauntlet.currentPhase - 1]
+    : null;
 
   const isBossDefeated = (idx: number) => bossProgress.find(p => p.boss_index === idx)?.defeated ?? false;
   const isPreviousDefeated = (idx: number) => idx === 1 || isBossDefeated(idx - 1);
@@ -73,30 +131,38 @@ const BossZone = () => {
     setSelectedBoss(bossIndex);
   };
 
-  const handleStartBattle = () => {
+  const handleStartGauntlet = () => {
     if (!boss) return;
-    const exercise = boss.exercise === 'mixed' ? 'bicep_curl' : boss.exercise;
-    session.setExercise(exercise as any);
-    session.setTargetReps(boss.repsRequired);
+    gauntlet.startGauntlet(boss.index, boss.phases.length);
+    phaseRepsAccumulated.current = {};
+    phaseStatDeltas.current = { attack: 0, defence: 0, focus: 0, agility: 0 };
+
+    const firstPhase = boss.phases[0];
+    session.setExercise(firstPhase.exercise as any);
+    session.setTargetReps(firstPhase.repsRequired);
     session.startSession();
-    sessionStartRef.current = Date.now();
     setBattling(true);
-    toast.info(`⚔️ Battle against ${boss.name}! Do ${boss.repsRequired} ${EXERCISE_LABELS[boss.exercise]}!`);
+    toast.info(`⚔️ Gauntlet: Phase 1 — ${EXERCISE_LABELS[firstPhase.exercise]} × ${firstPhase.repsRequired}`);
   };
 
-  const handleEndBattle = async () => {
+
+
+  const handleBattleResolution = async () => {
     session.endSession();
     if (!boss) return;
+
+    const totalCorrectReps = Object.values(phaseRepsAccumulated.current).reduce((s, v) => s + v, 0);
 
     if (!user.isGuest) {
       try {
         const { data, error } = await supabase.functions.invoke('boss-battle', {
           body: {
             boss_index: boss.index,
-            correct_reps: session.correctReps,
-            total_reps: session.repCount,
-            exercise: boss.exercise === 'mixed' ? 'bicep_curl' : boss.exercise,
+            correct_reps: totalCorrectReps,
+            total_reps: totalCorrectReps,
+            exercise: 'mixed',
             fatigue_score: session.fatigueIndex,
+            phase_reps: phaseRepsAccumulated.current,
           },
         });
 
@@ -121,28 +187,30 @@ const BossZone = () => {
         toast.error('Battle error');
       }
     } else {
-      // Guest mode - simple client-side resolution
-      const won = session.correctReps >= boss.repsRequired;
-      const statDeltas = calculateStatDeltas(
-        boss.exercise === 'mixed' ? 'bicep_curl' : boss.exercise,
-        session.correctReps
-      );
-      const accuracy = session.repCount > 0 ? session.correctReps / session.repCount : 0;
-      let xpEarned = calculateXP(session.correctReps, accuracy, session.fatigueIndex, user.streak);
-      if (won) xpEarned += boss.bonusXP;
+      const won = totalCorrectReps >= boss.phases.reduce((s, p) => s + p.repsRequired, 0);
+      const xpEarned = Math.min(totalCorrectReps, 150) * 10 + (won ? boss.bonusXP : 0);
       const newTotalXp = (user.total_xp || 0) + xpEarned;
       setUser({ ...user, total_xp: newTotalXp, level: getLevel(newTotalXp) });
       setBattleResult({
         won, rounds: 5,
         playerDmgPerRound: 50, damageTakenPerRound: 20,
         critTriggered: false, dodgeTriggered: false,
-        xpEarned, statDeltas,
+        xpEarned, statDeltas: phaseStatDeltas.current,
         bossDefeatedFirstTime: won,
       });
     }
 
     session.resetSession();
+    gauntlet.resetGauntlet();
     setBattling(false);
+  };
+
+  const handleAbortGauntlet = () => {
+    session.endSession();
+    session.resetSession();
+    gauntlet.resetGauntlet();
+    setBattling(false);
+    setPhaseComplete(false);
   };
 
   const closeBattleResult = () => {
@@ -150,11 +218,13 @@ const BossZone = () => {
     setSelectedBoss(null);
   };
 
-  const repProgress = boss ? Math.min(100, (session.correctReps / boss.repsRequired) * 100) : 0;
+  const repProgress = currentPhaseData
+    ? Math.min(100, (session.correctReps / currentPhaseData.repsRequired) * 100)
+    : 0;
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
+      <GlobalHeader />
 
       {battleResult && boss && (
         <BattleResultModal
@@ -164,40 +234,75 @@ const BossZone = () => {
         />
       )}
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4">
-        {/* Main area */}
-        <div className="flex-[2] min-h-[400px] lg:min-h-0">
-          {battling ? (
-            <div className="h-full flex flex-col gap-3">
-              <div className="flex-1">
-                <PoseCamera />
-              </div>
-              {boss && (
-                <div className="glass-card p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-mono font-bold text-foreground">
-                      {boss.emoji} {boss.name}
-                    </span>
-                    <span className="text-sm font-mono text-muted-foreground">
-                      {session.correctReps}/{boss.repsRequired} reps
-                    </span>
-                  </div>
-                  <Progress value={repProgress} className="h-3" />
-                  <PostureAlert posture={session.postureLabel} />
+      {battling && boss ? (
+        /* Full-screen gauntlet */
+        <div className="flex-1 flex flex-col p-4 gap-4">
+          {/* Boss info bar */}
+          <div className="glass-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{boss.emoji}</span>
+                <div>
+                  <h2 className="text-lg font-mono font-bold text-foreground">{boss.name}</h2>
+                  <p className="text-xs font-mono text-muted-foreground">{boss.lore}</p>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-2 h-2 bg-warning" />
-                <div className="w-8 h-px bg-warning/50" />
               </div>
+              <Button variant="destructive" size="sm" className="font-mono text-xs" onClick={handleAbortGauntlet}>
+                Retreat
+              </Button>
+            </div>
+            {/* Boss HP bar (decorative) */}
+            <Progress value={80} className="h-2" />
+          </div>
+
+          {/* Phase progress */}
+          <PhaseProgressBar
+            totalPhases={boss.phases.length}
+            currentPhase={gauntlet.currentPhase}
+            phasesComplete={gauntlet.phasesComplete}
+          />
+
+          {/* Current phase info */}
+          {currentPhaseData && (
+            <div className="text-center">
+              <span className="text-sm font-mono text-primary font-bold">
+                Phase {gauntlet.currentPhase}: {EXERCISE_LABELS[currentPhaseData.exercise]}
+              </span>
+              <span className="text-xs font-mono text-muted-foreground ml-2">
+                {session.correctReps}/{currentPhaseData.repsRequired} reps
+              </span>
+            </div>
+          )}
+
+          {/* Camera + HUD */}
+          <div className="flex-1 flex flex-col lg:flex-row gap-4">
+            <div className="flex-[2] min-h-[300px]">
+              <PoseCamera />
+            </div>
+            <div className="flex-1 flex flex-col gap-3">
+              <div className="glass-card p-4">
+                <Progress value={repProgress} className="h-3" />
+              </div>
+              <div className="glass-card p-6 flex flex-col items-center">
+                <RepCounterDisplay />
+              </div>
+              <div className="glass-card p-4 space-y-3">
+                <FatigueBar score={session.fatigueIndex} />
+                <PostureAlert posture={session.postureLabel} />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Boss selection */
+        <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4">
+          <div className="flex-[2]">
+            <div className="space-y-4">
               <h1 className="text-3xl font-mono font-extrabold tracking-tighter text-foreground">
                 BOSS <span className="text-warning">ZONE</span>
               </h1>
               <p className="text-sm font-mono text-muted-foreground">
-                Defeat 5 legendary bosses using your workout stats. HP: {getHP(userLevel)}
+                Complete multi-exercise gauntlets to defeat legendary bosses. HP: {getHP(userLevel)}
               </p>
 
               {loading ? (
@@ -224,73 +329,64 @@ const BossZone = () => {
                 </div>
               )}
             </div>
-          )}
+          </div>
+
+          {/* Side panel */}
+          <div className="flex-1 flex flex-col gap-4">
+            {boss && (
+              <div className="glass-card p-6 space-y-4">
+                <div className="text-center">
+                  <span className="text-5xl block mb-2">{boss.emoji}</span>
+                  <h3 className="text-xl font-mono font-bold text-foreground">{boss.name}</h3>
+                  <p className="text-xs font-mono text-muted-foreground mt-1">{boss.lore}</p>
+                </div>
+
+                {/* Phases */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-mono font-bold text-muted-foreground uppercase tracking-wider">Gauntlet Phases</h4>
+                  {boss.phases.map((p, i) => (
+                    <div key={i} className="flex justify-between text-xs font-mono">
+                      <span className="text-foreground">Phase {i + 1}: {EXERCISE_LABELS[p.exercise]}</span>
+                      <span className="text-primary font-bold">{p.repsRequired} reps</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2 text-sm font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Boss HP</span>
+                    <span className="text-destructive font-bold">{boss.bossHP}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">XP Bonus</span>
+                    <span className="text-accent font-bold">+{boss.bonusXP}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Weakness</span>
+                    <span className="text-warning font-bold">{boss.weakness}</span>
+                  </div>
+                </div>
+
+                <Button variant="brand" size="lg" className="w-full font-mono uppercase" onClick={handleStartGauntlet}>
+                  ⚔️ Begin Gauntlet
+                </Button>
+                <Button variant="ghost" size="sm" className="w-full font-mono" onClick={() => setSelectedBoss(null)}>
+                  ← Back
+                </Button>
+              </div>
+            )}
+
+            {!boss && (
+              <div className="glass-card p-6 text-center">
+                <p className="text-muted-foreground font-mono text-sm">Select a boss to challenge!</p>
+                <p className="text-xs text-muted-foreground font-mono mt-2">
+                  Each boss has multiple exercise phases. Complete them all to fight.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-
-        {/* Side panel */}
-        <div className="flex-1 flex flex-col gap-4">
-          {boss && !battling && (
-            <div className="glass-card p-6 space-y-4">
-              <div className="text-center">
-                <span className="text-5xl block mb-2">{boss.emoji}</span>
-                <h3 className="text-xl font-mono font-bold text-foreground">{boss.name}</h3>
-                <p className="text-xs font-mono text-muted-foreground mt-1">{boss.lore}</p>
-              </div>
-              <div className="space-y-2 text-sm font-mono">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Exercise</span>
-                  <span className="text-foreground">{EXERCISE_LABELS[boss.exercise]}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Reps Required</span>
-                  <span className="text-foreground font-bold">{boss.repsRequired}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Boss HP</span>
-                  <span className="text-destructive font-bold">{boss.bossHP}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">XP Bonus</span>
-                  <span className="text-accent font-bold">+{boss.bonusXP}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Weakness</span>
-                  <span className="text-warning font-bold">{boss.weakness}</span>
-                </div>
-              </div>
-              <Button variant="brand" size="lg" className="w-full font-mono uppercase" onClick={handleStartBattle}>
-                ⚔️ Begin Battle
-              </Button>
-              <Button variant="ghost" size="sm" className="w-full font-mono" onClick={() => setSelectedBoss(null)}>
-                ← Back
-              </Button>
-            </div>
-          )}
-
-          {battling && (
-            <>
-              <div className="glass-card p-6 flex flex-col items-center">
-                <RepCounterDisplay />
-              </div>
-              <div className="glass-card p-4">
-                <FatigueBar score={session.fatigueIndex} />
-              </div>
-              <Button variant="destructive" size="lg" className="w-full font-mono" onClick={handleEndBattle}>
-                ⏹ End Battle
-              </Button>
-            </>
-          )}
-
-          {!boss && !battling && (
-            <div className="glass-card p-6 text-center">
-              <p className="text-muted-foreground font-mono text-sm">Select a boss to challenge!</p>
-              <p className="text-xs text-muted-foreground font-mono mt-2">
-                Your stats determine battle outcome. Train in Practice mode to power up.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 };

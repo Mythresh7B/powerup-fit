@@ -40,15 +40,16 @@ const BossCard = ({ boss, userLevel, defeated, attempts, firstDefeatedAt, previo
 
       <p className="text-xs font-mono text-muted-foreground leading-relaxed">{boss.lore}</p>
 
+      {/* Phases preview */}
+      <div className="flex gap-1">
+        {boss.phases.map((p, i) => (
+          <span key={i} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+            {EXERCISE_LABELS[p.exercise]?.split(' ')[0]} ×{p.repsRequired}
+          </span>
+        ))}
+      </div>
+
       <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Exercise</span>
-          <span className="text-foreground">{EXERCISE_LABELS[boss.exercise] || boss.exercise}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Reps</span>
-          <span className="text-foreground font-bold">{boss.repsRequired}</span>
-        </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Boss HP</span>
           <span className="text-destructive">{boss.bossHP}</span>

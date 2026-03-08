@@ -16,30 +16,42 @@ export type Database = {
     Tables: {
       boss_progress: {
         Row: {
+          attempt_expires_at: string | null
+          attempt_started_at: string | null
           attempts: number
           boss_index: number
+          current_phase: number | null
           defeated: boolean
           first_defeated_at: string | null
           id: string
           last_attempted_at: string | null
+          phase_reps: Json | null
           user_id: string
         }
         Insert: {
+          attempt_expires_at?: string | null
+          attempt_started_at?: string | null
           attempts?: number
           boss_index: number
+          current_phase?: number | null
           defeated?: boolean
           first_defeated_at?: string | null
           id?: string
           last_attempted_at?: string | null
+          phase_reps?: Json | null
           user_id: string
         }
         Update: {
+          attempt_expires_at?: string | null
+          attempt_started_at?: string | null
           attempts?: number
           boss_index?: number
+          current_phase?: number | null
           defeated?: boolean
           first_defeated_at?: string | null
           id?: string
           last_attempted_at?: string | null
+          phase_reps?: Json | null
           user_id?: string
         }
         Relationships: [
@@ -52,10 +64,57 @@ export type Database = {
           },
         ]
       }
+      friendships: {
+        Row: {
+          created_at: string | null
+          id: string
+          receiver_id: string
+          requester_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          receiver_id: string
+          requester_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          receiver_id?: string
+          requester_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friendships_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friendships_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          avatar_url: string | null
+          bio: string | null
           id: string
+          last_active_at: string | null
+          last_username_change: string | null
           level: number | null
+          profile_visibility: string | null
           stat_agility: number
           stat_attack: number
           stat_defence: number
@@ -66,8 +125,13 @@ export type Database = {
           username: string
         }
         Insert: {
+          avatar_url?: string | null
+          bio?: string | null
           id: string
+          last_active_at?: string | null
+          last_username_change?: string | null
           level?: number | null
+          profile_visibility?: string | null
           stat_agility?: number
           stat_attack?: number
           stat_defence?: number
@@ -78,8 +142,13 @@ export type Database = {
           username: string
         }
         Update: {
+          avatar_url?: string | null
+          bio?: string | null
           id?: string
+          last_active_at?: string | null
+          last_username_change?: string | null
           level?: number | null
+          profile_visibility?: string | null
           stat_agility?: number
           stat_attack?: number
           stat_defence?: number

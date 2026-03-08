@@ -4,7 +4,7 @@ import { useAuthStore, useSessionStore } from '@/lib/store';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateXP, getLevel } from '@/lib/xp';
 import type { Exercise } from '@/lib/pose';
-import Navbar from '@/components/Navbar';
+import GlobalHeader from '@/components/GlobalHeader';
 import PoseCamera from '@/components/PoseCamera';
 import RepCounterDisplay from '@/components/RepCounter';
 import FatigueBar from '@/components/FatigueBar';
@@ -13,6 +13,7 @@ import PostureAlert from '@/components/PostureAlert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { useBackLock } from '@/hooks/useBackLock';
 
 const exercises: { label: string; value: Exercise }[] = [
   { label: '💪 Bicep Curl', value: 'bicep_curl' },
@@ -26,6 +27,8 @@ const Dashboard = () => {
   const { user, setUser } = useAuthStore();
   const session = useSessionStore();
   const sessionStartRef = useRef<number>(0);
+
+  useBackLock();
 
   useEffect(() => {
     if (!user) navigate('/');
@@ -45,7 +48,6 @@ const Dashboard = () => {
 
     if (!user.isGuest) {
       try {
-        // Call server-side edge function — XP is calculated server-side
         const { data, error } = await supabase.functions.invoke('complete-workout', {
           body: {
             exercise: session.exercise,
@@ -80,20 +82,15 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
+      <GlobalHeader />
       <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4">
-        {/* Camera panel */}
         <div className="flex-[2] min-h-[400px] lg:min-h-0">
           <PoseCamera />
         </div>
 
-        {/* HUD panel */}
         <div className="flex-1 flex flex-col gap-4">
-          {/* Exercise selector */}
           <div className="glass-card p-4">
-            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3 block">
-              Exercise
-            </span>
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3 block">Exercise</span>
             <div className="flex flex-wrap gap-2">
               {exercises.map((ex) => (
                 <Button
@@ -109,7 +106,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Rep counter + target */}
           <div className="glass-card p-6 flex flex-col items-center">
             <RepCounterDisplay />
             {!session.isActive && (
@@ -127,25 +123,15 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Fatigue + Posture */}
           <div className="glass-card p-4 space-y-4">
             <FatigueBar score={session.fatigueIndex} />
             <PostureAlert posture={session.postureLabel} />
           </div>
 
-          {/* XP Ring */}
           <div className="glass-card p-4 flex justify-center">
             <XPRing totalXp={user.total_xp} sessionXp={session.xp} />
           </div>
 
-          {/* Level display */}
-          <div className="glass-card p-3 text-center">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">Level</span>
-            <p className="text-2xl font-bold text-primary">{user.level}</p>
-            <p className="text-xs text-muted-foreground">{user.total_xp} XP total</p>
-          </div>
-
-          {/* Start/End button */}
           <Button
             variant={session.isActive ? 'destructive' : 'brand'}
             size="lg"
