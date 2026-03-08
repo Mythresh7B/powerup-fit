@@ -164,7 +164,7 @@ const Profile = () => {
     const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(newFilePath);
     const publicUrl = urlData.publicUrl;
 
-    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user!.id);
+    await supabase.rpc('update_profile_metadata', { p_avatar_url: publicUrl });
     updateAvatar(publicUrl);
     setStats(s => ({ ...s, avatar_url: publicUrl }));
     toast.success('Avatar updated!');
