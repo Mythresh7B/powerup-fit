@@ -68,7 +68,21 @@ export const useAuthStore = create<AuthState>()(
       }),
       setPendingRequests: (count) => set({ pendingRequests: count }),
     }),
-    { name: 'powerup-auth' }
+    {
+      name: 'powerup-auth',
+      partialize: (state) => ({
+        ...state,
+        user: state.user ? { ...state.user, isGuest: undefined } : null,
+      }),
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted as object) };
+        // Derive isGuest from user id instead of trusting localStorage
+        if ((merged as AuthState).user) {
+          (merged as AuthState).user!.isGuest = (merged as AuthState).user!.id === 'guest';
+        }
+        return merged as AuthState;
+      },
+    }
   )
 );
 
