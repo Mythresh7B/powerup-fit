@@ -14,10 +14,52 @@ export type Database = {
   }
   public: {
     Tables: {
+      boss_progress: {
+        Row: {
+          attempts: number
+          boss_index: number
+          defeated: boolean
+          first_defeated_at: string | null
+          id: string
+          last_attempted_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          boss_index: number
+          defeated?: boolean
+          first_defeated_at?: string | null
+          id?: string
+          last_attempted_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          boss_index?: number
+          defeated?: boolean
+          first_defeated_at?: string | null
+          id?: string
+          last_attempted_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boss_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           id: string
           level: number | null
+          stat_agility: number
+          stat_attack: number
+          stat_defence: number
+          stat_focus: number
           streak: number | null
           total_xp: number | null
           updated_at: string | null
@@ -26,6 +68,10 @@ export type Database = {
         Insert: {
           id: string
           level?: number | null
+          stat_agility?: number
+          stat_attack?: number
+          stat_defence?: number
+          stat_focus?: number
           streak?: number | null
           total_xp?: number | null
           updated_at?: string | null
@@ -34,6 +80,10 @@ export type Database = {
         Update: {
           id?: string
           level?: number | null
+          stat_agility?: number
+          stat_attack?: number
+          stat_defence?: number
+          stat_focus?: number
           streak?: number | null
           total_xp?: number | null
           updated_at?: string | null
