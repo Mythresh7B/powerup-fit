@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { label: 'Practice', path: '/practice' },
   { label: 'Levels', path: '/levels' },
-  { label: 'Instructions', path: '/instructions' },
+  { label: 'Boss Zone', path: '/boss-zone' },
   { label: 'History', path: '/history' },
   { label: 'Leaderboard', path: '/leaderboard' },
   { label: 'Profile', path: '/profile' },
