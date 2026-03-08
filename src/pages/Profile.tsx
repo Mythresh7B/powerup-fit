@@ -109,10 +109,10 @@ const Profile = () => {
         return;
       }
     }
-    const { error } = await supabase.from('profiles').update({
-      username: newUsername,
-      last_username_change: new Date().toISOString(),
-    }).eq('id', user!.id);
+    const { error } = await supabase.rpc('update_profile_metadata', {
+      p_username: newUsername,
+      p_last_username_change: new Date().toISOString(),
+    });
     if (error) {
       toast.error('Failed to update username');
     } else {
