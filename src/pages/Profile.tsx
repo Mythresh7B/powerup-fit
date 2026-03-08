@@ -10,6 +10,7 @@ import StatsBreakdownTable from '@/components/StatsBreakdownTable';
 import BossDefeatBadges from '@/components/BossDefeatBadges';
 import XPRing from '@/components/XPRing';
 import AvatarCircle from '@/components/AvatarCircle';
+import AvatarCropDialog from '@/components/AvatarCropDialog';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
