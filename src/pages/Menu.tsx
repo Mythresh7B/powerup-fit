@@ -8,10 +8,11 @@ import TechFrame from '@/components/TechFrame';
 const menuItems = [
   { label: '🏋️ Practice', path: '/practice', description: 'Free practice with AI pose tracking' },
   { label: '⚔️ Levels', path: '/levels', description: 'Battle monsters by completing rep challenges' },
+  { label: '🗡️ Boss Zone', path: '/boss-zone', description: 'Fight legendary bosses with your character stats' },
   { label: '📖 Instructions', path: '/instructions', description: 'Learn proper form for each exercise' },
   { label: '📊 History', path: '/history', description: 'View your past workout sessions' },
   { label: '🏆 Leaderboard', path: '/leaderboard', description: 'Compete with other players' },
-  { label: '👤 Profile', path: '/profile', description: 'View your stats and achievements' },
+  { label: '👤 Profile', path: '/profile', description: 'View your RPG character sheet & stats' },
 ];
 
 const Menu = () => {

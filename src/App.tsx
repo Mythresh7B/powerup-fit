@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Menu from "./pages/Menu";
 import Dashboard from "./pages/Dashboard";
 import Levels from "./pages/Levels";
+import BossZone from "./pages/BossZone";
 import History from "./pages/History";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/menu" element={<Menu />} />
             <Route path="/practice" element={<Dashboard />} />
             <Route path="/levels" element={<Levels />} />
+            <Route path="/boss-zone" element={<BossZone />} />
             <Route path="/instructions" element={<Instructions />} />
             <Route path="/history" element={<History />} />
             <Route path="/leaderboard" element={<Leaderboard />} />

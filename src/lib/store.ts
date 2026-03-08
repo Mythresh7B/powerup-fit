@@ -9,6 +9,10 @@ export interface UserProfile {
   total_xp: number;
   streak: number;
   isGuest?: boolean;
+  stat_attack?: number;
+  stat_defence?: number;
+  stat_focus?: number;
+  stat_agility?: number;
 }
 
 interface AuthState {
@@ -31,6 +35,10 @@ export const useAuthStore = create<AuthState>()(
           total_xp: 0,
           streak: 0,
           isGuest: true,
+          stat_attack: 0,
+          stat_defence: 0,
+          stat_focus: 0,
+          stat_agility: 0,
         },
       }),
       logout: () => set({ user: null }),
