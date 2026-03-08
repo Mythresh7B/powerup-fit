@@ -6,6 +6,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { DotLoader } from '@/components/ui/dot-loader';
+
+const loaderFrames = [
+  [14, 7, 0, 8, 6, 13, 20],
+  [14, 7, 13, 20, 16, 27, 21],
+  [14, 20, 27, 21, 34, 24, 28],
+  [27, 21, 34, 28, 41, 32, 35],
+  [34, 28, 41, 35, 48, 40, 42],
+  [34, 28, 41, 35, 48, 42, 46],
+  [34, 28, 41, 35, 48, 42, 38],
+  [34, 28, 41, 35, 48, 30, 21],
+  [34, 28, 41, 48, 21, 22, 14],
+  [34, 28, 41, 21, 14, 16, 27],
+  [34, 28, 21, 14, 10, 20, 27],
+  [28, 21, 14, 4, 13, 20, 27],
+  [28, 21, 14, 12, 6, 13, 20],
+  [28, 21, 14, 6, 13, 20, 11],
+  [28, 21, 14, 6, 13, 20, 10],
+  [14, 6, 13, 20, 9, 7, 21],
+];
 
 const AuthCard = () => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -37,7 +57,7 @@ const AuthCard = () => {
             streak: 0,
           });
           toast.success('Account created! Welcome to PowerUp.');
-          navigate('/dashboard');
+          navigate('/menu');
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -58,7 +78,7 @@ const AuthCard = () => {
             });
           }
           toast.success('Welcome back!');
-          navigate('/dashboard');
+          navigate('/menu');
         }
       }
     } catch (err: any) {
@@ -70,15 +90,16 @@ const AuthCard = () => {
 
   const handleGuest = () => {
     setGuest();
-    navigate('/dashboard');
+    navigate('/menu');
   };
 
   return (
     <div className="glass-card p-8 w-full max-w-md animate-fade-in-up">
+      {/* Mode toggle */}
       <div className="flex gap-1 mb-6 p-1 bg-secondary rounded-lg">
         <button
           onClick={() => setMode('login')}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+          className={`flex-1 py-2 text-sm font-mono font-medium rounded-md transition-all ${
             mode === 'login' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
           }`}
         >
@@ -86,7 +107,7 @@ const AuthCard = () => {
         </button>
         <button
           onClick={() => setMode('register')}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+          className={`flex-1 py-2 text-sm font-mono font-medium rounded-md transition-all ${
             mode === 'register' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
           }`}
         >
@@ -97,48 +118,56 @@ const AuthCard = () => {
       <form onSubmit={handleSubmit} className="space-y-4">
         {mode === 'register' && (
           <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username" className="font-mono text-xs uppercase tracking-wider">Username</Label>
             <Input
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="powerlifter99"
+              className="font-mono"
               required
             />
           </div>
         )}
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email" className="font-mono text-xs uppercase tracking-wider">Email</Label>
           <Input
             id="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
+            className="font-mono"
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" className="font-mono text-xs uppercase tracking-wider">Password</Label>
           <Input
             id="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
+            className="font-mono"
             required
             minLength={6}
           />
         </div>
-        <Button type="submit" variant="brand" size="lg" className="w-full" disabled={loading}>
-          {loading ? 'Loading...' : mode === 'login' ? 'Sign In' : 'Create Account'}
+        <Button type="submit" variant="brand" size="lg" className="w-full font-mono uppercase tracking-wider" disabled={loading}>
+          {loading ? (
+            <div className="flex items-center gap-3">
+              <DotLoader frames={loaderFrames} className="w-8 h-8" />
+              <span>Loading...</span>
+            </div>
+          ) : mode === 'login' ? 'Sign In' : 'Create Account'}
         </Button>
       </form>
 
       <div className="mt-4 text-center">
         <button
           onClick={handleGuest}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="text-sm font-mono text-muted-foreground hover:text-foreground transition-colors"
         >
           Try as Guest →
         </button>
