@@ -68,7 +68,19 @@ export const useAuthStore = create<AuthState>()(
       }),
       setPendingRequests: (count) => set({ pendingRequests: count }),
     }),
-    { name: 'powerup-auth' }
+    {
+      name: 'powerup-auth',
+      partialize: (state) => ({
+        ...state,
+        user: state.user ? { ...state.user, isGuest: undefined } : null,
+      }),
+      onRehydrate: () => (state) => {
+        // After rehydration, derive isGuest from user id instead of trusting localStorage
+        if (state?.user) {
+          state.user.isGuest = state.user.id === 'guest';
+        }
+      },
+    }
   )
 );
 
