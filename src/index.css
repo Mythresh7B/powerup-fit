@@ -64,12 +64,12 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
-    font-family: 'Inter', sans-serif;
+    @apply bg-background text-foreground;
+    font-family: 'JetBrains Mono', 'Inter', monospace;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'JetBrains Mono', monospace;
   }
 }
 
