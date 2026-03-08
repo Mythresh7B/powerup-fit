@@ -1,6 +1,6 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, memo } from 'react';
 import { extractAngles, RepCounter, FatigueTracker, checkPosture, POSE_CONNECTIONS } from '@/lib/pose';
-import type { Exercise, Landmark } from '@/lib/pose';
+import type { Landmark } from '@/lib/pose';
 import { useSessionStore } from '@/lib/store';
 
 // Load MediaPipe Pose from CDN (npm package doesn't work with Vite bundler)
@@ -16,7 +16,7 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
-const PoseCamera = () => {
+const PoseCamera = memo(() => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const poseRef = useRef<any>(null);
@@ -33,21 +33,26 @@ const PoseCamera = () => {
   const fpsCountRef = useRef(0);
   const fpsTimeRef = useRef(Date.now());
 
-  const { isActive, exercise, onRepComplete, setFatigue, setPosture } = useSessionStore();
-  const isActiveRef = useRef(isActive);
-  const exerciseRef = useRef(exercise);
-  isActiveRef.current = isActive;
-  exerciseRef.current = exercise;
+  // Use refs for store values to avoid re-renders
+  const isActiveRef = useRef(false);
+  const exerciseRef = useRef(useSessionStore.getState().exercise);
 
-  const onRepCompleteRef = useRef(onRepComplete);
-  const setFatigueRef = useRef(setFatigue);
-  const setPostureRef = useRef(setPosture);
-  onRepCompleteRef.current = onRepComplete;
-  setFatigueRef.current = setFatigue;
-  setPostureRef.current = setPosture;
+  // Subscribe to store changes via refs only (no re-render)
+  useEffect(() => {
+    const unsub = useSessionStore.subscribe((state) => {
+      isActiveRef.current = state.isActive;
+      exerciseRef.current = state.exercise;
+    });
+    // Sync initial values
+    const s = useSessionStore.getState();
+    isActiveRef.current = s.isActive;
+    exerciseRef.current = s.exercise;
+    return unsub;
+  }, []);
+
+  const isActive = useSessionStore((s) => s.isActive); // only for LIVE badge render
 
   const drawSkeleton = useCallback((ctx: CanvasRenderingContext2D, landmarks: Landmark[], w: number, h: number) => {
-    // Mirror x coordinates to match the flipped video
     ctx.strokeStyle = '#10b981';
     ctx.lineWidth = 3;
 
@@ -98,13 +103,21 @@ const PoseCamera = () => {
         const ex = exerciseRef.current;
         const counted = repCounterRef.current.update(ex, angles);
         const posture = checkPosture(ex, angles, landmarks);
-        setPostureRef.current(posture);
+
+        // Batch store updates: only call when values actually change
+        const store = useSessionStore.getState();
+        if (store.postureLabel !== posture) {
+          useSessionStore.setState({ postureLabel: posture });
+        }
 
         if (counted) {
           fatigueRef.current.recordRep();
           const isCorrect = posture === 'correct';
-          onRepCompleteRef.current(isCorrect, posture);
-          setFatigueRef.current(fatigueRef.current.getScore());
+          store.onRepComplete(isCorrect, posture);
+          const newFatigue = fatigueRef.current.getScore();
+          if (Math.abs(store.fatigueIndex - newFatigue) > 0.01) {
+            useSessionStore.setState({ fatigueIndex: newFatigue });
+          }
         }
       }
     }
@@ -141,7 +154,6 @@ const PoseCamera = () => {
           canvas.height = video.videoHeight || 480;
         }
 
-        // Load MediaPipe Pose via CDN script tag
         await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js');
         if (cancelled) return;
 
@@ -167,7 +179,6 @@ const PoseCamera = () => {
         poseRef.current = pose;
         setLoading(false);
 
-        // Inference loop at ~24fps
         inferenceTimerRef.current = window.setInterval(async () => {
           if (isProcessingRef.current || !video || video.readyState < 2) return;
           isProcessingRef.current = true;
@@ -208,7 +219,6 @@ const PoseCamera = () => {
       <video ref={videoRef} className="hidden" playsInline muted />
       <canvas ref={canvasRef} className="w-full h-full object-cover" />
 
-      {/* FPS badge */}
       <div className="absolute top-3 left-3 flex items-center gap-2">
         <span className="px-2 py-1 rounded-md bg-secondary/80 backdrop-blur text-xs font-mono text-muted-foreground">
           {fps} FPS
@@ -242,6 +252,8 @@ const PoseCamera = () => {
       )}
     </div>
   );
-};
+});
+
+PoseCamera.displayName = 'PoseCamera';
 
 export default PoseCamera;

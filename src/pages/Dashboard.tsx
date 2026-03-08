@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, useSessionStore } from '@/lib/store';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,10 +22,82 @@ const exercises: { label: string; value: Exercise }[] = [
   { label: '🧘 Plank', value: 'plank' },
 ];
 
+/* ── Isolated sub-components that subscribe to only what they need ── */
+
+const PostureAlertConnected = memo(() => {
+  const posture = useSessionStore((s) => s.postureLabel);
+  return <PostureAlert posture={posture} />;
+});
+PostureAlertConnected.displayName = 'PostureAlertConnected';
+
+const FatigueBarConnected = memo(() => {
+  const score = useSessionStore((s) => s.fatigueIndex);
+  return <FatigueBar score={score} />;
+});
+FatigueBarConnected.displayName = 'FatigueBarConnected';
+
+const XPRingConnected = memo(() => {
+  const totalXp = useAuthStore((s) => s.user?.total_xp ?? 0);
+  const sessionXp = useSessionStore((s) => s.xp);
+  return <XPRing totalXp={totalXp} sessionXp={sessionXp} />;
+});
+XPRingConnected.displayName = 'XPRingConnected';
+
+const ExercisePicker = memo(() => {
+  const exercise = useSessionStore((s) => s.exercise);
+  const isActive = useSessionStore((s) => s.isActive);
+  const setExercise = useSessionStore((s) => s.setExercise);
+
+  return (
+    <div className="glass-card p-4">
+      <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3 block">Exercise</span>
+      <div className="flex flex-wrap gap-2">
+        {exercises.map((ex) => (
+          <Button
+            key={ex.value}
+            variant={exercise === ex.value ? 'pill-active' : 'pill'}
+            size="sm"
+            onClick={() => !isActive && setExercise(ex.value)}
+            disabled={isActive}
+          >
+            {ex.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+});
+ExercisePicker.displayName = 'ExercisePicker';
+
+const TargetRepsInput = memo(() => {
+  const isActive = useSessionStore((s) => s.isActive);
+  const targetReps = useSessionStore((s) => s.targetReps);
+  const setTargetReps = useSessionStore((s) => s.setTargetReps);
+
+  if (isActive) return null;
+
+  return (
+    <div className="mt-4 flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">Target:</span>
+      <Input
+        type="number"
+        value={targetReps}
+        onChange={(e) => setTargetReps(Number(e.target.value))}
+        className="w-20 text-center"
+        min={1}
+        max={100}
+      />
+    </div>
+  );
+});
+TargetRepsInput.displayName = 'TargetRepsInput';
+
+/* ── Main Dashboard ── */
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
-  const session = useSessionStore();
+  const isActive = useSessionStore((s) => s.isActive);
   const sessionStartRef = useRef<number>(0);
 
   useBackLock();
@@ -37,23 +109,25 @@ const Dashboard = () => {
   if (!user) return null;
 
   const handleStartSession = () => {
-    session.startSession();
+    useSessionStore.getState().startSession();
     sessionStartRef.current = Date.now();
     toast.info('Session started! Get into position.');
   };
 
   const handleEndSession = async () => {
-    session.endSession();
+    // Snapshot values before resetting
+    const { exercise, repCount, correctReps, fatigueIndex } = useSessionStore.getState();
+    useSessionStore.getState().endSession();
     const durationSeconds = Math.round((Date.now() - sessionStartRef.current) / 1000);
 
     if (!user.isGuest) {
       try {
         const { data, error } = await supabase.functions.invoke('complete-workout', {
           body: {
-            exercise: session.exercise,
-            total_reps: session.repCount,
-            correct_reps: session.correctReps,
-            fatigue_score: session.fatigueIndex,
+            exercise,
+            total_reps: repCount,
+            correct_reps: correctReps,
+            fatigue_score: fatigueIndex,
             duration_seconds: durationSeconds,
           },
         });
@@ -70,14 +144,14 @@ const Dashboard = () => {
         toast.error('Failed to save workout');
       }
     } else {
-      const accuracy = session.repCount > 0 ? session.correctReps / session.repCount : 0;
-      const xpEarned = calculateXP(session.correctReps, accuracy, session.fatigueIndex, user.streak);
+      const accuracy = repCount > 0 ? correctReps / repCount : 0;
+      const xpEarned = calculateXP(correctReps, accuracy, fatigueIndex, user.streak);
       const newTotalXp = (user.total_xp || 0) + xpEarned;
       setUser({ ...user, total_xp: newTotalXp, level: getLevel(newTotalXp) });
       toast.success(`Session complete! +${xpEarned} XP earned 🎉`);
     }
 
-    session.resetSession();
+    useSessionStore.getState().resetSession();
   };
 
   return (
@@ -89,56 +163,29 @@ const Dashboard = () => {
         </div>
 
         <div className="flex-1 flex flex-col gap-4">
-          <div className="glass-card p-4">
-            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3 block">Exercise</span>
-            <div className="flex flex-wrap gap-2">
-              {exercises.map((ex) => (
-                <Button
-                  key={ex.value}
-                  variant={session.exercise === ex.value ? 'pill-active' : 'pill'}
-                  size="sm"
-                  onClick={() => !session.isActive && session.setExercise(ex.value)}
-                  disabled={session.isActive}
-                >
-                  {ex.label}
-                </Button>
-              ))}
-            </div>
-          </div>
+          <ExercisePicker />
 
           <div className="glass-card p-6 flex flex-col items-center">
             <RepCounterDisplay />
-            {!session.isActive && (
-              <div className="mt-4 flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Target:</span>
-                <Input
-                  type="number"
-                  value={session.targetReps}
-                  onChange={(e) => session.setTargetReps(Number(e.target.value))}
-                  className="w-20 text-center"
-                  min={1}
-                  max={100}
-                />
-              </div>
-            )}
+            <TargetRepsInput />
           </div>
 
           <div className="glass-card p-4 space-y-4">
-            <FatigueBar score={session.fatigueIndex} />
-            <PostureAlert posture={session.postureLabel} />
+            <FatigueBarConnected />
+            <PostureAlertConnected />
           </div>
 
           <div className="glass-card p-4 flex justify-center">
-            <XPRing totalXp={user.total_xp} sessionXp={session.xp} />
+            <XPRingConnected />
           </div>
 
           <Button
-            variant={session.isActive ? 'destructive' : 'brand'}
+            variant={isActive ? 'destructive' : 'brand'}
             size="lg"
             className="w-full"
-            onClick={session.isActive ? handleEndSession : handleStartSession}
+            onClick={isActive ? handleEndSession : handleStartSession}
           >
-            {session.isActive ? '⏹ End Session' : '▶ Start Session'}
+            {isActive ? '⏹ End Session' : '▶ Start Session'}
           </Button>
         </div>
       </div>
