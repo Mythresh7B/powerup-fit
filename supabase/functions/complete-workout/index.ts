@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
     const statDeltas = calculateStatDeltas(exercise, safeCorrect);
 
     // Insert workout log
-    const { error: insertError } = await supabase.from("workout_logs").insert({
+    const { error: insertError } = await adminClient.from("workout_logs").insert({
       user_id: userId, exercise, duration_seconds: safeDuration,
       total_reps: safeTotal, correct_reps: safeCorrect,
       xp_earned: xpEarned, fatigue_score: safeFatigue,
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
     const newTotalXp = (profile.total_xp || 0) + xpEarned;
     const newLevel = getLevel(newTotalXp);
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await adminClient
       .from("profiles")
       .update({
         total_xp: newTotalXp,
