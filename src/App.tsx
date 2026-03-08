@@ -14,6 +14,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import Instructions from "./pages/Instructions";
 import Social from "./pages/Social";
+import VerifyEmail from "./pages/VerifyEmail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
