@@ -59,6 +59,8 @@ const Profile = () => {
   const [editingBio, setEditingBio] = useState(false);
   const [newBio, setNewBio] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
 
   useBackLock();
 
