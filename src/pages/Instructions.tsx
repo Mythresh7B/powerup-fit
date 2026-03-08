@@ -1,12 +1,12 @@
-import Navbar from '@/components/Navbar';
+import GlobalHeader from '@/components/GlobalHeader';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/lib/store';
 import { useEffect } from 'react';
+import { useBackLock } from '@/hooks/useBackLock';
 
 const exercises = [
   {
-    name: 'Bicep Curl',
-    emoji: '💪',
+    name: 'Bicep Curl', emoji: '💪',
     steps: [
       'Stand straight with arms fully extended at your sides.',
       'Keep your elbows pinned to your torso — do not let them drift forward.',
@@ -21,8 +21,7 @@ const exercises = [
     ],
   },
   {
-    name: 'Shoulder Press',
-    emoji: '🏋️',
+    name: 'Shoulder Press', emoji: '🏋️',
     steps: [
       'Start with arms bent at 90° at shoulder height (like a goalpost).',
       'Press both arms straight up overhead until fully extended.',
@@ -36,8 +35,7 @@ const exercises = [
     ],
   },
   {
-    name: 'Squat',
-    emoji: '🦵',
+    name: 'Squat', emoji: '🦵',
     steps: [
       'Stand with feet shoulder-width apart.',
       'Lower your body by bending your knees until thighs are parallel to the floor.',
@@ -52,8 +50,7 @@ const exercises = [
     ],
   },
   {
-    name: 'Plank',
-    emoji: '🧘',
+    name: 'Plank', emoji: '🧘',
     steps: [
       'Get into a push-up position with arms straight.',
       'Keep your body in a straight line from head to heels.',
@@ -72,6 +69,8 @@ const Instructions = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
+  useBackLock();
+
   useEffect(() => {
     if (!user) navigate('/');
   }, [user, navigate]);
@@ -80,61 +79,38 @@ const Instructions = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
+      <GlobalHeader />
       <div className="flex-1 p-6 max-w-4xl mx-auto w-full space-y-8">
         <div className="space-y-2">
-          <h1 className="text-3xl font-mono font-bold text-foreground tracking-tight">
-            // WORKOUT_PROTOCOLS
-          </h1>
+          <h1 className="text-3xl font-mono font-bold text-foreground tracking-tight">📖 Workout Protocols</h1>
           <p className="text-sm font-mono text-muted-foreground">
             Follow these instructions for valid rep detection by the AI pose engine.
           </p>
         </div>
 
-        {/* General tips */}
         <div className="glass-card p-6 space-y-3 border-l-2 border-primary/50">
-          <h2 className="text-sm font-mono uppercase tracking-wider text-primary">
-            &gt; GENERAL_SETUP
-          </h2>
+          <h2 className="text-sm font-mono uppercase tracking-wider text-primary">&gt; GENERAL_SETUP</h2>
           <ul className="space-y-2 text-sm font-mono text-muted-foreground">
-            <li className="flex gap-2">
-              <span className="text-primary">01</span>
-              <span>Position your camera so your full body is visible.</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-primary">02</span>
-              <span>Ensure good lighting — the AI needs to see your joints clearly.</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-primary">03</span>
-              <span>Wear fitted clothing for better pose detection accuracy.</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-primary">04</span>
-              <span>Stand ~6 feet from the camera for optimal tracking.</span>
-            </li>
+            <li className="flex gap-2"><span className="text-primary">01</span><span>Position your camera so your full body is visible.</span></li>
+            <li className="flex gap-2"><span className="text-primary">02</span><span>Ensure good lighting — the AI needs to see your joints clearly.</span></li>
+            <li className="flex gap-2"><span className="text-primary">03</span><span>Wear fitted clothing for better pose detection accuracy.</span></li>
+            <li className="flex gap-2"><span className="text-primary">04</span><span>Stand ~6 feet from the camera for optimal tracking.</span></li>
           </ul>
         </div>
 
-        {/* Exercise cards */}
         {exercises.map((ex, idx) => (
           <div key={ex.name} className="glass-card p-6 space-y-4">
             <div className="flex items-center gap-3">
               <span className="text-3xl">{ex.emoji}</span>
               <div>
-                <h2 className="text-lg font-mono font-bold text-foreground">
-                  {ex.name}
-                </h2>
+                <h2 className="text-lg font-mono font-bold text-foreground">{ex.name}</h2>
                 <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">
                   PROTOCOL_{String(idx + 1).padStart(2, '0')}
                 </span>
               </div>
             </div>
-
             <div className="space-y-2">
-              <h3 className="text-xs font-mono uppercase tracking-wider text-primary">
-                &gt; STEPS
-              </h3>
+              <h3 className="text-xs font-mono uppercase tracking-wider text-primary">&gt; STEPS</h3>
               <ol className="space-y-1.5">
                 {ex.steps.map((step, i) => (
                   <li key={i} className="flex gap-2 text-sm font-mono text-muted-foreground">
@@ -144,16 +120,12 @@ const Instructions = () => {
                 ))}
               </ol>
             </div>
-
             <div className="space-y-2 border-t border-border/30 pt-3">
-              <h3 className="text-xs font-mono uppercase tracking-wider text-accent">
-                &gt; TIPS
-              </h3>
+              <h3 className="text-xs font-mono uppercase tracking-wider text-accent">&gt; TIPS</h3>
               <ul className="space-y-1.5">
                 {ex.tips.map((tip, i) => (
                   <li key={i} className="flex gap-2 text-sm font-mono text-muted-foreground">
-                    <span className="text-accent">→</span>
-                    <span>{tip}</span>
+                    <span className="text-accent">→</span><span>{tip}</span>
                   </li>
                 ))}
               </ul>

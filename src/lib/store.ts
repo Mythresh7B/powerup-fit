@@ -13,6 +13,8 @@ export interface UserProfile {
   stat_defence?: number;
   stat_focus?: number;
   stat_agility?: number;
+  avatar_url?: string | null;
+  bio?: string | null;
 }
 
 interface AuthState {
@@ -20,12 +22,19 @@ interface AuthState {
   setUser: (user: UserProfile | null) => void;
   setGuest: () => void;
   logout: () => void;
+  updateAvatar: (url: string) => void;
+  updateBio: (bio: string) => void;
+  updateUsername: (username: string) => void;
+  updateStats: (deltas: { attack: number; defence: number; focus: number; agility: number }) => void;
+  pendingRequests: number;
+  setPendingRequests: (count: number) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
+      pendingRequests: 0,
       setUser: (user) => set({ user }),
       setGuest: () => set({
         user: {
@@ -41,7 +50,23 @@ export const useAuthStore = create<AuthState>()(
           stat_agility: 0,
         },
       }),
-      logout: () => set({ user: null }),
+      logout: () => set({ user: null, pendingRequests: 0 }),
+      updateAvatar: (url) => set((s) => s.user ? { user: { ...s.user, avatar_url: url } } : {}),
+      updateBio: (bio) => set((s) => s.user ? { user: { ...s.user, bio } } : {}),
+      updateUsername: (username) => set((s) => s.user ? { user: { ...s.user, username } } : {}),
+      updateStats: (deltas) => set((s) => {
+        if (!s.user) return {};
+        return {
+          user: {
+            ...s.user,
+            stat_attack: (s.user.stat_attack || 0) + deltas.attack,
+            stat_defence: (s.user.stat_defence || 0) + deltas.defence,
+            stat_focus: (s.user.stat_focus || 0) + deltas.focus,
+            stat_agility: (s.user.stat_agility || 0) + deltas.agility,
+          },
+        };
+      }),
+      setPendingRequests: (count) => set({ pendingRequests: count }),
     }),
     { name: 'powerup-auth' }
   )
@@ -92,5 +117,49 @@ export const useSessionStore = create<SessionState>()((set) => ({
   resetSession: () => set({
     isActive: false, repCount: 0, correctReps: 0, fatigueIndex: 0,
     postureLabel: 'correct', xp: 0, accuracyHistory: [],
+  }),
+}));
+
+interface GauntletState {
+  bossIndex: number | null;
+  currentPhase: number;
+  totalPhases: number;
+  phasesComplete: boolean[];
+  phaseReps: Record<number, number>;
+  isActive: boolean;
+  startGauntlet: (bossIndex: number, totalPhases: number) => void;
+  completePhase: (phase: number, reps: number) => void;
+  resetGauntlet: () => void;
+}
+
+export const useGauntletStore = create<GauntletState>()((set) => ({
+  bossIndex: null,
+  currentPhase: 1,
+  totalPhases: 0,
+  phasesComplete: [],
+  phaseReps: {},
+  isActive: false,
+  startGauntlet: (bossIndex, totalPhases) => set({
+    bossIndex,
+    currentPhase: 1,
+    totalPhases,
+    phasesComplete: Array(totalPhases).fill(false),
+    phaseReps: {},
+    isActive: true,
+  }),
+  completePhase: (phase, reps) => set((s) => {
+    const newComplete = [...s.phasesComplete];
+    newComplete[phase - 1] = true;
+    const newReps = { ...s.phaseReps, [phase]: reps };
+    const nextPhase = phase < s.totalPhases ? phase + 1 : phase;
+    return {
+      phasesComplete: newComplete,
+      phaseReps: newReps,
+      currentPhase: nextPhase,
+    };
+  }),
+  resetGauntlet: () => set({
+    bossIndex: null, currentPhase: 1, totalPhases: 0,
+    phasesComplete: [], phaseReps: {}, isActive: false,
   }),
 }));

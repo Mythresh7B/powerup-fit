@@ -21,16 +21,6 @@ function getLevel(totalXp: number): number {
   return Math.min(level, 20);
 }
 
-function calculateXP(correctReps: number, totalReps: number, fatigue: number, streak: number): number {
-  if (totalReps <= 0 || correctReps < 0) return 0;
-  const accuracy = correctReps / totalReps;
-  const base = Math.min(correctReps, 100) * 10;
-  const bonus = accuracy > 0.90 ? 20 : 0;
-  const penalty = fatigue > 0.60 ? 10 : 0;
-  const streakMult = streak >= 30 ? 1.5 : streak >= 7 ? 1.25 : streak >= 3 ? 1.1 : 1.0;
-  return Math.min(Math.max(0, Math.floor((base + bonus - penalty) * streakMult)), 1500);
-}
-
 function calculateStatDeltas(exercise: string, correctReps: number) {
   const d = { attack: 0, defence: 0, focus: 0, agility: 0 };
   switch (exercise) {
@@ -42,13 +32,13 @@ function calculateStatDeltas(exercise: string, correctReps: number) {
   return d;
 }
 
-// Boss definitions
+// Updated boss definitions with gauntlet phases
 const BOSSES = [
-  { index: 1, hp: 200, attack: 15, defence: 10, bonusXP: 150, repsRequired: 10, exercise: "bicep_curl", weakness: "attack" },
-  { index: 2, hp: 400, attack: 28, defence: 25, bonusXP: 250, repsRequired: 15, exercise: "shoulder_press", weakness: "defence" },
-  { index: 3, hp: 650, attack: 45, defence: 20, bonusXP: 350, repsRequired: 20, exercise: "squat", weakness: "agility" },
-  { index: 4, hp: 900, attack: 60, defence: 50, bonusXP: 450, repsRequired: 8, exercise: "plank", weakness: "focus" },
-  { index: 5, hp: 1500, attack: 90, defence: 70, bonusXP: 550, repsRequired: 25, exercise: "mixed", weakness: "all" },
+  { index: 1, hp: 250, attack: 18, defence: 12, bonusXP: 150, phases: [{ exercise: "bicep_curl", reps: 12 }, { exercise: "squat", reps: 10 }] },
+  { index: 2, hp: 500, attack: 32, defence: 30, bonusXP: 250, phases: [{ exercise: "shoulder_press", reps: 15 }, { exercise: "squat", reps: 15 }, { exercise: "bicep_curl", reps: 12 }] },
+  { index: 3, hp: 750, attack: 50, defence: 25, bonusXP: 350, phases: [{ exercise: "squat", reps: 20 }, { exercise: "plank", reps: 6 }, { exercise: "bicep_curl", reps: 15 }, { exercise: "shoulder_press", reps: 10 }] },
+  { index: 4, hp: 1100, attack: 65, defence: 55, bonusXP: 450, phases: [{ exercise: "plank", reps: 10 }, { exercise: "shoulder_press", reps: 20 }, { exercise: "squat", reps: 20 }, { exercise: "plank", reps: 8 }] },
+  { index: 5, hp: 2000, attack: 95, defence: 75, bonusXP: 550, phases: [{ exercise: "bicep_curl", reps: 25 }, { exercise: "shoulder_press", reps: 25 }, { exercise: "squat", reps: 25 }, { exercise: "plank", reps: 12 }] },
 ];
 
 Deno.serve(async (req) => {
@@ -79,14 +69,13 @@ Deno.serve(async (req) => {
     }
     const userId = claimsData.claims.sub as string;
 
-    // Service role client for DB operations
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
     const body = await req.json();
-    const { boss_index, correct_reps, total_reps, exercise, fatigue_score } = body;
+    const { boss_index, correct_reps, total_reps, fatigue_score, phase_reps } = body;
 
     const bossIdx = Math.floor(Number(boss_index));
     const boss = BOSSES.find(b => b.index === bossIdx);
@@ -96,29 +85,64 @@ Deno.serve(async (req) => {
       });
     }
 
-    const safeCorrect = Math.max(0, Math.min(Math.floor(Number(correct_reps) || 0), 1000));
-    const safeTotal = Math.max(0, Math.min(Math.floor(Number(total_reps) || 0), 1000));
+    const safeCorrect = Math.max(0, Math.min(Math.floor(Number(correct_reps) || 0), 2000));
+    const safeTotal = Math.max(0, Math.min(Math.floor(Number(total_reps) || 0), 2000));
     const safeFatigue = Math.max(0, Math.min(Number(fatigue_score) || 0, 1));
 
-    const { data: profile, error: profileError } = await adminClient
+    // Get profile
+    let { data: profile, error: profileError } = await adminClient
       .from("profiles")
       .select("total_xp, streak, level, stat_attack, stat_defence, stat_focus, stat_agility")
       .eq("id", userId)
       .single();
 
-    if (profileError || !profile) {
+    if (profileError && profileError.code === "PGRST116") {
+      const { data: newProfile } = await adminClient
+        .from("profiles")
+        .insert({ id: userId, username: "User" })
+        .select("total_xp, streak, level, stat_attack, stat_defence, stat_focus, stat_agility")
+        .single();
+      profile = newProfile;
+    }
+
+    if (!profile) {
       return new Response(JSON.stringify({ error: "Profile not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Calculate stat deltas from reps
-    const statDeltas = calculateStatDeltas(exercise === "mixed" ? "bicep_curl" : exercise, safeCorrect);
+    // Calculate cumulative stat deltas from all phases
+    const statDeltas = { attack: 0, defence: 0, focus: 0, agility: 0 };
+    if (phase_reps && typeof phase_reps === "object") {
+      for (const [phaseStr, reps] of Object.entries(phase_reps)) {
+        const phaseIdx = Number(phaseStr) - 1;
+        const phase = boss.phases[phaseIdx];
+        if (phase) {
+          const d = calculateStatDeltas(phase.exercise, Number(reps) || 0);
+          statDeltas.attack += d.attack;
+          statDeltas.defence += d.defence;
+          statDeltas.focus += d.focus;
+          statDeltas.agility += d.agility;
+        }
+      }
+    } else {
+      // Fallback: treat as single exercise
+      const d = calculateStatDeltas("bicep_curl", safeCorrect);
+      statDeltas.attack += d.attack;
+      statDeltas.defence += d.defence;
+      statDeltas.focus += d.focus;
+      statDeltas.agility += d.agility;
+    }
 
-    // Calculate base XP from reps
-    const baseXP = calculateXP(safeCorrect, safeTotal, safeFatigue, profile.streak || 0);
+    // Base XP from reps (cap raised to 150 for gauntlet)
+    const accuracy = safeTotal > 0 ? safeCorrect / safeTotal : 0;
+    const base = Math.min(safeCorrect, 150) * 10;
+    const bonus = accuracy > 0.90 ? 20 : 0;
+    const penalty = safeFatigue > 0.60 ? 10 : 0;
+    const streakMult = (profile.streak || 0) >= 30 ? 1.5 : (profile.streak || 0) >= 7 ? 1.25 : (profile.streak || 0) >= 3 ? 1.1 : 1.0;
+    const baseXP = Math.min(Math.max(0, Math.floor((base + bonus - penalty) * streakMult)), 1500);
 
-    // Run battle resolution with CURRENT stats (before adding new deltas)
+    // Battle resolution
     const attack = profile.stat_attack || 0;
     const defence = profile.stat_defence || 0;
     const focus = profile.stat_focus || 0;
@@ -138,13 +162,13 @@ Deno.serve(async (req) => {
     const roundsToKillBoss = Math.ceil(boss.hp / Math.max(playerDmg, 1));
     const roundsToKillPlayer = actualDmg > 0 ? Math.ceil(hpMax / actualDmg) : 9999;
 
-    // Player also needs enough correct reps
-    const metRepRequirement = safeCorrect >= boss.repsRequired;
+    // Check total reps meet all phase requirements
+    const totalRequired = boss.phases.reduce((s, p) => s + p.reps, 0);
+    const metRepRequirement = safeCorrect >= totalRequired;
     const playerWins = metRepRequirement && (roundsToKillBoss <= roundsToKillPlayer);
-
     const rounds = Math.min(roundsToKillBoss, roundsToKillPlayer);
 
-    // Check if boss was previously defeated
+    // Check existing progress
     const { data: existingProgress } = await adminClient
       .from("boss_progress")
       .select("defeated, attempts")
@@ -153,15 +177,16 @@ Deno.serve(async (req) => {
       .single();
 
     const bossDefeatedFirstTime = playerWins && !(existingProgress?.defeated);
+    const isRematch = existingProgress?.defeated === true;
 
     // Calculate total XP
     let totalXpEarned = baseXP;
-    if (playerWins) {
+    if (playerWins && !isRematch) {
       totalXpEarned += boss.bonusXP;
       if (bossDefeatedFirstTime) totalXpEarned += 200;
     }
+    // Rematches: only practice XP from reps, no boss bonus
 
-    // Update stats and XP
     const newTotalXp = (profile.total_xp || 0) + totalXpEarned;
     const newLevel = getLevel(newTotalXp);
 
@@ -178,7 +203,7 @@ Deno.serve(async (req) => {
     // Insert workout log
     await adminClient.from("workout_logs").insert({
       user_id: userId,
-      exercise: exercise === "mixed" ? "bicep_curl" : exercise,
+      exercise: "boss_gauntlet",
       total_reps: safeTotal,
       correct_reps: safeCorrect,
       xp_earned: totalXpEarned,
@@ -191,6 +216,8 @@ Deno.serve(async (req) => {
       const updateData: Record<string, unknown> = {
         attempts: (existingProgress.attempts || 0) + 1,
         last_attempted_at: new Date().toISOString(),
+        current_phase: 1,
+        phase_reps: {},
       };
       if (playerWins && !existingProgress.defeated) {
         updateData.defeated = true;
@@ -206,6 +233,8 @@ Deno.serve(async (req) => {
         attempts: 1,
         first_defeated_at: playerWins ? new Date().toISOString() : null,
         last_attempted_at: new Date().toISOString(),
+        current_phase: 1,
+        phase_reps: {},
       });
     }
 

@@ -9,22 +9,14 @@ import { toast } from 'sonner';
 import { DotLoader } from '@/components/ui/dot-loader';
 
 const loaderFrames = [
-  [14, 7, 0, 8, 6, 13, 20],
-  [14, 7, 13, 20, 16, 27, 21],
-  [14, 20, 27, 21, 34, 24, 28],
-  [27, 21, 34, 28, 41, 32, 35],
-  [34, 28, 41, 35, 48, 40, 42],
-  [34, 28, 41, 35, 48, 42, 46],
-  [34, 28, 41, 35, 48, 42, 38],
-  [34, 28, 41, 35, 48, 30, 21],
-  [34, 28, 41, 48, 21, 22, 14],
-  [34, 28, 41, 21, 14, 16, 27],
-  [34, 28, 21, 14, 10, 20, 27],
-  [28, 21, 14, 4, 13, 20, 27],
-  [28, 21, 14, 12, 6, 13, 20],
-  [28, 21, 14, 6, 13, 20, 11],
-  [28, 21, 14, 6, 13, 20, 10],
-  [14, 6, 13, 20, 9, 7, 21],
+  [14, 7, 0, 8, 6, 13, 20], [14, 7, 13, 20, 16, 27, 21],
+  [14, 20, 27, 21, 34, 24, 28], [27, 21, 34, 28, 41, 32, 35],
+  [34, 28, 41, 35, 48, 40, 42], [34, 28, 41, 35, 48, 42, 46],
+  [34, 28, 41, 35, 48, 42, 38], [34, 28, 41, 35, 48, 30, 21],
+  [34, 28, 41, 48, 21, 22, 14], [34, 28, 41, 21, 14, 16, 27],
+  [34, 28, 21, 14, 10, 20, 27], [28, 21, 14, 4, 13, 20, 27],
+  [28, 21, 14, 12, 6, 13, 20], [28, 21, 14, 6, 13, 20, 11],
+  [28, 21, 14, 6, 13, 20, 10], [14, 6, 13, 20, 9, 7, 21],
 ];
 
 const AuthCard = () => {
@@ -42,13 +34,18 @@ const AuthCard = () => {
 
     try {
       if (mode === 'register') {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { username } },
+        });
         if (error) throw error;
         if (data.user) {
-          await supabase.from('profiles' as any).insert({
+          // Profile is auto-created by trigger, but also try manual insert
+          await supabase.from('profiles').upsert({
             id: data.user.id,
             username,
-          });
+          } as any);
           setUser({
             id: data.user.id,
             username,
@@ -64,7 +61,7 @@ const AuthCard = () => {
         if (error) throw error;
         if (data.user) {
           const { data: profile } = await supabase
-            .from('profiles' as any)
+            .from('profiles')
             .select('*')
             .eq('id', data.user.id)
             .single();
@@ -79,6 +76,8 @@ const AuthCard = () => {
               stat_defence: (profile as any).stat_defence || 0,
               stat_focus: (profile as any).stat_focus || 0,
               stat_agility: (profile as any).stat_agility || 0,
+              avatar_url: (profile as any).avatar_url || null,
+              bio: (profile as any).bio || null,
             });
           }
           toast.success('Welcome back!');
@@ -99,22 +98,13 @@ const AuthCard = () => {
 
   return (
     <div className="glass-card p-8 w-full max-w-md animate-fade-in-up">
-      {/* Mode toggle */}
       <div className="flex gap-1 mb-6 p-1 bg-secondary rounded-lg">
-        <button
-          onClick={() => setMode('login')}
-          className={`flex-1 py-2 text-sm font-mono font-medium rounded-md transition-all ${
-            mode === 'login' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
-          }`}
-        >
+        <button onClick={() => setMode('login')}
+          className={`flex-1 py-2 text-sm font-mono font-medium rounded-md transition-all ${mode === 'login' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>
           Sign In
         </button>
-        <button
-          onClick={() => setMode('register')}
-          className={`flex-1 py-2 text-sm font-mono font-medium rounded-md transition-all ${
-            mode === 'register' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
-          }`}
-        >
+        <button onClick={() => setMode('register')}
+          className={`flex-1 py-2 text-sm font-mono font-medium rounded-md transition-all ${mode === 'register' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>
           Register
         </button>
       </div>
@@ -123,40 +113,16 @@ const AuthCard = () => {
         {mode === 'register' && (
           <div className="space-y-2">
             <Label htmlFor="username" className="font-mono text-xs uppercase tracking-wider">Username</Label>
-            <Input
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="powerlifter99"
-              className="font-mono"
-              required
-            />
+            <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="powerlifter99" className="font-mono" required />
           </div>
         )}
         <div className="space-y-2">
           <Label htmlFor="email" className="font-mono text-xs uppercase tracking-wider">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="font-mono"
-            required
-          />
+          <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="font-mono" required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="password" className="font-mono text-xs uppercase tracking-wider">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className="font-mono"
-            required
-            minLength={6}
-          />
+          <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="font-mono" required minLength={6} />
         </div>
         <Button type="submit" variant="brand" size="lg" className="w-full font-mono uppercase tracking-wider" disabled={loading}>
           {loading ? (
@@ -169,10 +135,7 @@ const AuthCard = () => {
       </form>
 
       <div className="mt-4 text-center">
-        <button
-          onClick={handleGuest}
-          className="text-sm font-mono text-muted-foreground hover:text-foreground transition-colors"
-        >
+        <button onClick={handleGuest} className="text-sm font-mono text-muted-foreground hover:text-foreground transition-colors">
           Try as Guest →
         </button>
       </div>
